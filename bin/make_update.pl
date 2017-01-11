@@ -28,11 +28,16 @@
 use strict;
 use warnings;
 
+# Use relative path or export PERL5LIB to include absolute path
+#
+use lib qw(../lib);
+
 use Getopt::Long;
 use Carp qw(croak carp);
 use Data::Dumper;
 use File::Copy qw(copy);
 use Cwd;
+use Util::GenericUtils qw(isFile isPath trim_all);
 
 # Global variables
 #
@@ -64,33 +69,33 @@ GetOptions(
 # Check that database file is supplied and is valid
 #
 ! $DB_FILE and &usage("Command-line argument --db-file must be supplied.");
-! -f $DB_FILE and croak("File '$DB_FILE' not found: $!");
+! isFile($DB_FILE) and die("File '$DB_FILE' not found.");
 
 # Check that destination directory is valid (if provided, else use the current directory)
 #
-($DEST_DIR and ! -d $DEST_DIR) and croak("Destination directory '$DEST_DIR' not found: $!");
+($DEST_DIR and ! isPath($DEST_DIR)) and die("Destination directory '$DEST_DIR' not found.");
 ! $DEST_DIR and $DEST_DIR = getcwd();
 $DEBUG and print STDERR "Destination Directory: $DEST_DIR\n";
 
 # Copy the file (if --dest-dir not provided, current directory)
 #
-copy($DB_FILE, $DEST_DIR) or croak("File copy '$DB_FILE' to '$DEST_DIR' failed: $!");
+copy($DB_FILE, $DEST_DIR) or die("File copy '$DB_FILE' to '$DEST_DIR' failed.");
 
 # Update the version file (use the default if not supplied)
 #
 my $version_file = $VERSION_FILE ? $VERSION_FILE : $DEF_VERSION_FILE;
 my $version_path = qq|$DEST_DIR/$version_file|;
-! -f $version_path and croak("Version file '$version_path' not found: $!");
-open(my $fh, $version_path) or croak("Unable to open '$version_path' for reading: $!");
-my ($version, $update) = map{ s|\s$||; $_ } split('-', <$fh>);
-close $fh;
+! isFile($version_path) and die("Version file '$version_path' not found.");
+open(my $rfh, $version_path) or die("Unable to open '$version_path' for reading.");
+my ($version, $update) = map{ trim_all($_); $_ } split('-', <$rfh>);
+close $rfh;
 
 $update+=1;
 $DEBUG and print STDERR "Database Version=$version, New Update=$update\n";
 
-open(my $fh, '>', $version_path) or croak("Unable to open '$version_path' for writting: $!");
-print $fh qq|$version-$update\n|;
-close $fh;
+open(my $wfh, '>', $version_path) or die("Unable to open '$version_path' for writting.");
+print $wfh qq|$version-$update\n|;
+close $wfh;
 
 
 #------------------------------------------------------------------------------
@@ -108,5 +113,3 @@ _USAGE
 
     exit(1);
 }
-
-

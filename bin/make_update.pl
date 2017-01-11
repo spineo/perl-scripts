@@ -3,7 +3,8 @@
 #------------------------------------------------------------------------------
 # Name       : make_update.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage      : ./make_update.pl --db-file "path to db file"
+# Usage      : ./make_update.pl --db-file "path to db file" 
+#                             [ --version-file "version file" ]
 # Description: Create a new App database update, deploy it to GitHub, 
 # and trigger the Jenkins build.
 #
@@ -45,15 +46,17 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG = 0;
 
-our ($DB_FILE, $DEST_DIR);
+our ($DB_FILE, $DEST_DIR, $VERSION_FILE);
+our $DEF_VERSION_FILE = 'version.txt';
 
 use Getopt::Long;
 GetOptions(
-    'db-file=s'  => \$DB_FILE,
-    'dest-dir=s' => \$DEST_DIR,
-    'debug'      => \$DEBUG,
-    'verbose'    => \$VERBOSE,
-    'help|usage' => \&usage,
+    'db-file=s'   => \$DB_FILE,
+    'dest-dir=s'  => \$DEST_DIR,
+    'vers-file=s' => \$VERSION_FILE,
+    'debug'       => \$DEBUG,
+    'verbose'     => \$VERBOSE,
+    'help|usage'  => \&usage,
 );
 
 # Validation
@@ -72,6 +75,22 @@ $DEBUG and print STDERR "Destination Directory: $DEST_DIR\n";
 # Copy the file (if --dest-dir not provided, current directory)
 #
 copy($DB_FILE, $DEST_DIR) or croak("File copy '$DB_FILE' to '$DEST_DIR' failed: $!");
+
+# Update the version file (use the default if not supplied)
+#
+my $version_file = $VERSION_FILE ? $VERSION_FILE : $DEF_VERSION_FILE;
+my $version_path = qq|$DEST_DIR/$version_file|;
+! -f $version_path and croak("Version file '$version_path' not found: $!");
+open(my $fh, $version_path) or croak("Unable to open '$version_path' for reading: $!");
+my ($version, $update) = map{ s|\s$||; $_ } split('-', <$fh>);
+close $fh;
+
+$update+=1;
+$DEBUG and print STDERR "Database Version=$version, New Update=$update\n";
+
+open(my $fh, '>', $version_path) or croak("Unable to open '$version_path' for writting: $!");
+print $fh qq|$version-$update\n|;
+close $fh;
 
 
 #------------------------------------------------------------------------------

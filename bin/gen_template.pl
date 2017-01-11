@@ -19,6 +19,7 @@ our $VERSION = qq|1.0|;
 
 our $HEADER =<<_END;
 #!/usr/bin/env perl -w
+
 #------------------------------------------------------------------------------
 # Name       : $SCRIPT
 # Author     : $AUTHOR  <$EMAIL>
@@ -48,6 +49,8 @@ use strict;
 use warnings;
 
 use Getopt::Long;
+use Carp qw(croak carp);
+use Data::Dumper;
 
 # Global variables
 #
@@ -63,9 +66,9 @@ our \$DEBUG = 0;
 
 use Getopt::Long;
 GetOptions(
-    'debug'      => \$DEBUG,
-    'verbose'    => \$VERBOSE,
-    'help|usage' => \&usage,
+    'debug'      => \\\$DEBUG,
+    'verbose'    => \\\$VERBOSE,
+    'help|usage' => \\\&usage,
 );
 
 #------------------------------------------------------------------------------

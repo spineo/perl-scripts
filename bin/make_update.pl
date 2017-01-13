@@ -88,7 +88,8 @@ close $rfh;
 
 # Copy the file (if --dest-dir not provided, current directory)
 #
-my $db_file = qq|$DB_DIR/$db_name\.$db_ext|;
+my $db_file_name = qq|$db_name\.$db_ext|;
+my $db_file = qq|$DB_DIR/$db_file_name|;
 ! isFile($db_file) and die("DB File '$db_file' not found.");
 copy($db_file, $DEST_DIR) or die("File copy '$db_file' to '$DEST_DIR' failed.");
 
@@ -102,6 +103,15 @@ $DEBUG and print STDERR "DB Name=$db_name, DB Ext=$db_ext, DB Version=$version, 
 open(my $wfh, '>', $version_path) or die("Unable to open '$version_path' for writting.");
 print $wfh qq|$db_name-$db_ext-$version-$update\n|;
 close $wfh;
+
+# Compute the MD5
+#
+my $db_dest_name = qq|$DEST_DIR/$db_file_name|;
+$db_dest_name =~ s| |\\ |g;
+my $md5 = `md5 $db_dest_name`;
+($? > 0) and die "md5 calculation for '$db_dest_name' failed.";
+chomp $md5;
+$md5 =~ s|^.* ||;
 
 
 #------------------------------------------------------------------------------

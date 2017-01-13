@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/perl -w
 
 ###############################################################################
 # Name       : gen_template.pl
@@ -18,7 +18,7 @@ our $YEAR    = qq|2017|;
 our $VERSION = qq|1.0|;
 
 our $HEADER =<<_END;
-#!/usr/bin/env perl -w
+#!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
 # Name       : $SCRIPT
@@ -62,7 +62,7 @@ our \$VERSION = "$VERSION";
 # Generic variables
 #
 our \$VERBOSE = 0;
-our \$DEBUG = 0;
+our \$DEBUG   = 0;
 
 use Getopt::Long;
 GetOptions(

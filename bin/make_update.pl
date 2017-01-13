@@ -1,4 +1,4 @@
-#!/usr/bin/env perl -w
+#!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
 # Name       : make_update.pl
@@ -37,6 +37,9 @@ use Carp qw(croak carp);
 use Data::Dumper;
 use File::Copy qw(copy);
 use Cwd;
+
+# These found in ../lib
+#
 use Util::GenericUtils qw(isFile isPath trim);
 
 # Global variables

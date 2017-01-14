@@ -1,4 +1,4 @@
-
+#!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
 # Name       : make_update.pl
@@ -109,13 +109,7 @@ close $wfh;
 
 # Compute the MD5 and write to the file
 #
-my $db_dest_name = qq|$DEST_DIR/$db_file_name|;
-$db_dest_name =~ s| |\\ |g;
-my $md5 = `md5 $db_dest_name`;
-($? > 0) and die "md5 calculation for '$db_dest_name' failed.";
-chomp $md5;
-$md5 =~ s|^.* ||;
-
+my $md5 = compute_md5("$DEST_DIR/$db_file_name");
 my $md5_file_name = qq|$db_name\.md5|;
 my $md5_path = qq|$DEST_DIR/$md5_file_name|;
 open(my $md5fh, '>', $md5_path) or die("Unable to open '$md5_path' for writting.");

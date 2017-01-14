@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(trim trim_all trim_ctrl has_carriage_return datestamp getEnv isFile isPath sendMail execScript safe_copy logger deep_copy);
+@EXPORT_OK = qw(trim trim_all trim_ctrl has_carriage_return datestamp get_env is_file is_path send_mail exec_script safe_copy logger deep_copy compute_md5);
 
 
 
@@ -171,12 +171,12 @@ sub datestamp {
 #
 # ********************************************************************************
 #------------------------------------------------------------------------------
-# getEnv
+# get_env
 #
 # Extract the environment variable. Log a message if not defined.
 #------------------------------------------------------------------------------
 
-sub getEnv {
+sub get_env {
     my $key = shift;
     my $value = $ENV{$key};
 
@@ -186,12 +186,12 @@ sub getEnv {
 }
 
 #------------------------------------------------------------------------------
-# isFile
+# is_file
 #
 # Validate a file
 #------------------------------------------------------------------------------
 
-sub isFile {
+sub is_file {
     my $file = shift;
 
     $file =~ s/^\s+//;
@@ -204,12 +204,12 @@ sub isFile {
 
 
 #------------------------------------------------------------------------------
-# isPath
+# is_path
 #
 # Validate a path
 #------------------------------------------------------------------------------
 
-sub isPath {
+sub is_path {
     my $path = shift;
 
     $path =~ s/^\s+//;
@@ -222,14 +222,14 @@ sub isPath {
 
 
 #------------------------------------------------------------------------------
-# sendMail
+# send_mail
 #
 # Send an email message using the /usr/bin/mailx utility. The email body is
 # extracted from a file.
 #------------------------------------------------------------------------------
 
-sub sendMail {
-    croak("Bad call to sendMail - expect a single hash ref")
+sub send_mail {
+    croak("Bad call to send_mail - expect a single hash ref")
     unless @_ == 1 and ref $_[0] eq "HASH";    
 
     my $params = shift;
@@ -261,13 +261,13 @@ sub sendMail {
 }
 
 #------------------------------------------------------------------------------
-# execScript
+# exec_script
 #
 # Check that the executable bit is set and execute the script. Return specific
 # errors and/or output from the execution.
 #------------------------------------------------------------------------------
 
-sub execScript {
+sub exec_script {
     my $sys_call = shift;
 
     # (1) Make sure that the executable bit is set
@@ -357,5 +357,27 @@ sub deep_copy {
     } else { croak "what type is $_?" }
 }
 
+#------------------------------------------------------------------------------
+# compute_md5
+#
+# Compute md5 checksum for a file
+#------------------------------------------------------------------------------
+
+sub compute_md5 {
+    my $file_name = shift;
+
+    # Escape any spaces
+    #
+    $file_name =~ s| |\\ |g;
+    my $md5 = `md5 $file_name`;
+    ($? > 0) and die "md5 checksum for '$file_name' failed.";
+    chomp $md5;
+
+    # Remove any prefix
+    #
+    $md5 =~ s|^.* ||;
+
+    return $md5
+}
 
 1;

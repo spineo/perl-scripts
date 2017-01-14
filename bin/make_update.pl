@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+
 
 #------------------------------------------------------------------------------
 # Name       : make_update.pl
@@ -40,7 +40,7 @@ use Cwd;
 
 # These found in ../lib
 #
-use Util::GenericUtils qw(isFile isPath trim);
+use Util::GenericUtils qw(is_file is_path trim compute_md5);
 
 # Global variables
 #
@@ -72,11 +72,11 @@ GetOptions(
 # Check that database file is supplied and is valid
 #
 ! $DB_DIR and &usage("Command-line argument --db-dir must be supplied.");
-! isPath($DB_DIR) and die("DB directory '$DB_DIR' not found.");
+! is_path($DB_DIR) and die("DB directory '$DB_DIR' not found.");
 
 # Check that destination directory is valid (if provided, else use the current directory)
 #
-($DEST_DIR and ! isPath($DEST_DIR)) and die("Destination directory '$DEST_DIR' not found.");
+($DEST_DIR and ! is_path($DEST_DIR)) and die("Destination directory '$DEST_DIR' not found.");
 ! $DEST_DIR and $DEST_DIR = getcwd();
 $DEBUG and print STDERR "Destination Directory: $DEST_DIR\n";
 
@@ -84,7 +84,7 @@ $DEBUG and print STDERR "Destination Directory: $DEST_DIR\n";
 #
 my $version_file = $VERSION_FILE ? $VERSION_FILE : $DEF_VERSION_FILE;
 my $version_path = qq|$DEST_DIR/$version_file|;
-! isFile($version_path) and die("Version file '$version_path' not found.");
+! is_file($version_path) and die("Version file '$version_path' not found.");
 open(my $rfh, $version_path) or die("Unable to open '$version_path' for reading.");
 my ($db_name, $db_ext, $version, $update) = map{ trim($_); $_ } split('-', <$rfh>);
 close $rfh;
@@ -93,7 +93,7 @@ close $rfh;
 #
 my $db_file_name = qq|$db_name\.$db_ext|;
 my $db_file = qq|$DB_DIR/$db_file_name|;
-! isFile($db_file) and die("DB File '$db_file' not found.");
+! is_file($db_file) and die("DB File '$db_file' not found.");
 copy($db_file, $DEST_DIR) or die("File copy '$db_file' to '$DEST_DIR' failed.");
 
 # Update the version
@@ -107,7 +107,7 @@ open(my $wfh, '>', $version_path) or die("Unable to open '$version_path' for wri
 print $wfh qq|$db_name-$db_ext-$version-$update\n|;
 close $wfh;
 
-# Compute the MD5
+# Compute the MD5 and write to the file
 #
 my $db_dest_name = qq|$DEST_DIR/$db_file_name|;
 $db_dest_name =~ s| |\\ |g;
@@ -115,6 +115,12 @@ my $md5 = `md5 $db_dest_name`;
 ($? > 0) and die "md5 calculation for '$db_dest_name' failed.";
 chomp $md5;
 $md5 =~ s|^.* ||;
+
+my $md5_file_name = qq|$db_name\.md5|;
+my $md5_path = qq|$DEST_DIR/$md5_file_name|;
+open(my $md5fh, '>', $md5_path) or die("Unable to open '$md5_path' for writting.");
+print $md5fh qq|$md5|;
+close $md5fh;
 
 
 #------------------------------------------------------------------------------

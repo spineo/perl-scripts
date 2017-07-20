@@ -59,26 +59,17 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $DEST_PATH);
+our ($URL);
 
 use Getopt::Long;
 GetOptions(
     'url=s'       => \$URL,
-    'dest-path=s' => \$DEST_PATH,
     'debug'       => \$DEBUG,
     'verbose'     => \$VERBOSE,
     'help|usage'  => \&usage,
 );
 
 ! $URL and usage("--url must be set");
-
-# Set the destination path
-#
-if (! $DEST_PATH) {
-    $DEST_PATH = cwd();
-}
-! is_path($DEST_PATH) and die("Path '$DEST_PATH' not found.");
-chdir $DEST_PATH;
 
 # Retrieve all installations from root
 #
@@ -87,7 +78,7 @@ die("Unable to retrieve content from '$URL'") unless $quotes_page;
 
 my @lines = split(/\n/, $quotes_page);
 foreach my $line (@lines) {
-	$DEBUG and print STDERR "$line\n";
+    print STDOUT "$line\n";
 }
 
 #------------------------------------------------------------------------------
@@ -100,8 +91,8 @@ sub usage {
     $err and print STDERR "Error: $err\n";
 
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --url <quotes page> [ --dest-path /somedir --debug --verbose ]
-Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page=1 [ --debug --verbose ]
+Usage:   ./$COMMAND --url <quotes page> [ --debug --verbose ] > output_file
+Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page=1 > quotes.txt
 _USAGE
 
     exit(1);

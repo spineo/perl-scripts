@@ -59,13 +59,15 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE);
+our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTH_OPEN, $AUTH_CLOSE);
 
 use Getopt::Long;
 GetOptions(
     'url=s'         => \$URL,
     'quote-open=s'  => \$QUOTE_OPEN,
     'quote-close=s' => \$QUOTE_CLOSE,
+    'auth-open=s'   => \$AUTH_OPEN,
+    'auth-close=s'  => \$AUTH_CLOSE,
     'debug'         => \$DEBUG,
     'verbose'       => \$VERBOSE,
     'help|usage'    => \&usage,
@@ -74,6 +76,8 @@ GetOptions(
 ! $URL         and usage("--url must be set");
 ! $QUOTE_OPEN  and usage("--quote-open must be set");
 ! $QUOTE_CLOSE and usage("--quote-close must be set");
+! $AUTH_OPEN   and usage("--auth-open must be set");
+! $AUTH_CLOSE  and usage("--auth-close must be set");
 
 # Retrieve all installations from root
 #

@@ -40,7 +40,8 @@ use Getopt::Long;
 use Carp qw(croak carp);
 use Data::Dumper;
 
-use LWP::Simple;
+#use LWP::Simple;
+use LWP::UserAgent;
 use Cwd qw(cwd);
 
 # These found in ../lib
@@ -81,17 +82,25 @@ GetOptions(
 
 # Retrieve all installations from root
 #
-my $quotes_page = get $URL;
+my $ua = LWP::UserAgent->new();
+my $req = new HTTP::Request GET => $URL;
+my $res = $ua->request($req);
+my $quotes_page = $res->content;
+
+#my $quotes_page = get $URL;
 die("Unable to retrieve content from '$URL'") unless $quotes_page;
+
+print STDERR $quotes_page;
 
 my @lines = split(/\n/, $quotes_page);
 my $qopen = 0;
-my $qtext;
+my $aopen = 0;
+my ($qtext, $atext);
 foreach my $line (@lines) {
     if ($qopen) {
-	if ($line =~ m/([^<]*)</) {
+	if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
 		$qtext .= &cleanup($1);
-    		print STDOUT "$qtext\n";
+    		print STDOUT "QUOTE=>$qtext<=\n";
 		$qtext = "";
 		$qopen = 0;
 
@@ -99,9 +108,24 @@ foreach my $line (@lines) {
 		$qtext .= &cleanup($line);
 	}
 
+    } elsif ($aopen) {
+	if ($line =~ m/([^$AUTH_CLOSE]*)</) {
+		$atext .= &cleanup($1);
+    		print STDOUT "SOURCE=>$atext<=\n";
+		$atext = "";
+		$aopen = 0;
+
+	} else {
+		$atext .= &cleanup($line);
+	}
+
     } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
 	$qopen = 1;
 	$qtext = &cleanup($1);
+
+    } elsif ($line =~ m/$AUTH_OPEN(.*)/) {
+	$aopen = 1;
+	$atext = &cleanup($1);
     }
 }
 

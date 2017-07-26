@@ -60,25 +60,25 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTH_OPEN, $AUTH_CLOSE);
+our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE);
 
 use Getopt::Long;
 GetOptions(
-    'url=s'         => \$URL,
-    'quote-open=s'  => \$QUOTE_OPEN,
-    'quote-close=s' => \$QUOTE_CLOSE,
-    'auth-open=s'   => \$AUTH_OPEN,
-    'auth-close=s'  => \$AUTH_CLOSE,
-    'debug'         => \$DEBUG,
-    'verbose'       => \$VERBOSE,
-    'help|usage'    => \&usage,
+    'url=s'          => \$URL,
+    'quote-open=s'   => \$QUOTE_OPEN,
+    'quote-close=s'  => \$QUOTE_CLOSE,
+    'source-open=s'  => \$SOURCE_OPEN,
+    'source-close=s' => \$SOURCE_CLOSE,
+    'debug'          => \$DEBUG,
+    'verbose'        => \$VERBOSE,
+    'help|usage'     => \&usage,
 );
 
 ! $URL         and usage("--url must be set");
 ! $QUOTE_OPEN  and usage("--quote-open must be set");
 ! $QUOTE_CLOSE and usage("--quote-close must be set");
-! $AUTH_OPEN   and usage("--auth-open must be set");
-! $AUTH_CLOSE  and usage("--auth-close must be set");
+! $SOURCE_OPEN   and usage("--source-open must be set");
+! $SOURCE_CLOSE  and usage("--source-close must be set");
 
 # Retrieve all installations from root
 #
@@ -90,12 +90,12 @@ my $quotes_page = $res->content;
 #my $quotes_page = get $URL;
 die("Unable to retrieve content from '$URL'") unless $quotes_page;
 
-print STDERR $quotes_page;
+$DEBUG and print STDERR $quotes_page;
 
 my @lines = split(/\n/, $quotes_page);
 my $qopen = 0;
-my $aopen = 0;
-my ($qtext, $atext);
+my $sopen = 0;
+my ($qtext, $stext);
 foreach my $line (@lines) {
     if ($qopen) {
 	if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
@@ -108,24 +108,24 @@ foreach my $line (@lines) {
 		$qtext .= &cleanup($line);
 	}
 
-    } elsif ($aopen) {
-	if ($line =~ m/([^$AUTH_CLOSE]*)</) {
-		$atext .= &cleanup($1);
-    		print STDOUT "SOURCE=>$atext<=\n";
-		$atext = "";
-		$aopen = 0;
+    } elsif ($sopen) {
+	if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
+		$stext .= &cleanup($1);
+    		print STDOUT "SOURCE=>$stext<=\n";
+		$stext = "";
+		$sopen = 0;
 
 	} else {
-		$atext .= &cleanup($line);
+		$stext .= &cleanup($line);
 	}
 
     } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
 	$qopen = 1;
 	$qtext = &cleanup($1);
 
-    } elsif ($line =~ m/$AUTH_OPEN(.*)/) {
-	$aopen = 1;
-	$atext = &cleanup($1);
+    } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
+	$sopen = 1;
+	$stext = &cleanup($1);
     }
 }
 

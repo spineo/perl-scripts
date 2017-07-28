@@ -95,13 +95,11 @@ $DEBUG and print STDERR $quotes_page;
 my @lines = split(/\n/, $quotes_page);
 my $qopen = 0;
 my $sopen = 0;
-my ($qtext, $stext);
+my ($qtext, $stext, $print);
 foreach my $line (@lines) {
     if ($qopen) {
         if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
             $qtext .= &cleanup($1);
-            print STDOUT "QUOTE=>$qtext<=\n";
-            $qtext = "";
             $qopen = 0;
 
         } else {
@@ -111,8 +109,6 @@ foreach my $line (@lines) {
     } elsif ($sopen) {
         if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
             $stext .= &cleanup($1);
-            print STDOUT "QUOTE=>$stext<=\n";
-            $stext = "";
             $sopen = 0;
 
         } else {
@@ -122,24 +118,28 @@ foreach my $line (@lines) {
     } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
         $qopen = 1;
         $qtext = &cleanup($1);
+	$print = 0;
 
         if ($qtext =~ m/^([^$QUOTE_CLOSE]+)$QUOTE_CLOSE/) {
             $qtext = $1;
-            print STDOUT "QUOTE=>$qtext<=\n";
-            $qtext = "";
             $qopen = 0;
         }
 
     } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
         $sopen = 1;
         $stext = &cleanup($1);
+	$print = 0;
 
         if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
             $stext = $1;
-            print STDOUT "SOURCE=>$stext<=\n";
-            $stext = "";
             $sopen = 0;
         }
+
+    } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print) {
+	print STDOUT "$qtext<=>$stext\n";
+	$qtext = "";
+	$stext = "";
+	$print = 1;
     }
 }
 

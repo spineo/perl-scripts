@@ -46,7 +46,7 @@ use Cwd qw(cwd);
 
 # These found in ../lib
 #
-use Util::GenericUtils qw(is_path);
+use Util::GenericUtils qw(trim is_path);
 
 # Global variables
 #
@@ -98,34 +98,48 @@ my $sopen = 0;
 my ($qtext, $stext);
 foreach my $line (@lines) {
     if ($qopen) {
-	if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
-		$qtext .= &cleanup($1);
-    		print STDOUT "QUOTE=>$qtext<=\n";
-		$qtext = "";
-		$qopen = 0;
+        if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
+            $qtext .= &cleanup($1);
+            print STDOUT "QUOTE=>$qtext<=\n";
+            $qtext = "";
+            $qopen = 0;
 
-	} else {
-		$qtext .= &cleanup($line);
-	}
+        } else {
+            $qtext .= &cleanup($line);
+        }
 
     } elsif ($sopen) {
-	if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
-		$stext .= &cleanup($1);
-    		print STDOUT "SOURCE=>$stext<=\n";
-		$stext = "";
-		$sopen = 0;
+        if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
+            $stext .= &cleanup($1);
+            print STDOUT "QUOTE=>$stext<=\n";
+            $stext = "";
+            $sopen = 0;
 
-	} else {
-		$stext .= &cleanup($line);
-	}
+        } else {
+            $stext .= &cleanup($line);
+        }
 
     } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
-	$qopen = 1;
-	$qtext = &cleanup($1);
+        $qopen = 1;
+        $qtext = &cleanup($1);
+
+        if ($qtext =~ m/^([^$QUOTE_CLOSE]+)$QUOTE_CLOSE/) {
+            $qtext = $1;
+            print STDOUT "QUOTE=>$qtext<=\n";
+            $qtext = "";
+            $qopen = 0;
+        }
 
     } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
-	$sopen = 1;
-	$stext = &cleanup($1);
+        $sopen = 1;
+        $stext = &cleanup($1);
+
+        if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
+            $stext = $1;
+            print STDOUT "SOURCE=>$stext<=\n";
+            $stext = "";
+            $sopen = 0;
+        }
     }
 }
 
@@ -134,13 +148,12 @@ foreach my $line (@lines) {
 #------------------------------------------------------------------------------
 
 sub cleanup {
-	my $text = shift;
+    my $text = shift;
 
-	$text =~ s/\n/ /g;
-	$text =~ s/\&[a-z]+\;//g;
-	$text =~ s/ +/ /g;
+    $text =~ s/\n/ /g;
+    $text =~ s/\&[a-z]+\;//g;
 
-	return $text;
+    return trim($text);
 }
 
 #------------------------------------------------------------------------------

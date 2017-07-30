@@ -136,7 +136,7 @@ foreach my $line (@lines) {
         }
 
     } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print) {
-	print STDOUT "$qtext<=>$stext\n";
+	print STDOUT "$qtext###$stext\n";
 	$qtext = "";
 	$stext = "";
 	$print = 1;
@@ -167,7 +167,7 @@ sub usage {
 
     print STDERR <<_USAGE;
 Usage:   ./$COMMAND --url <quotes page> [ --debug --verbose ] > output_file
-Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page=1 --quote-open '"quoteText">' --quote-close '<' > quotes.txt
+Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page=1 --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<'> quotes.txt
 _USAGE
 
     exit(1);

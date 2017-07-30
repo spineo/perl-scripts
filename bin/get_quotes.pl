@@ -60,7 +60,7 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE);
+our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE, $NUM_PAGES);
 
 use Getopt::Long;
 GetOptions(
@@ -69,6 +69,7 @@ GetOptions(
     'quote-close=s'  => \$QUOTE_CLOSE,
     'source-open=s'  => \$SOURCE_OPEN,
     'source-close=s' => \$SOURCE_CLOSE,
+    'num-pages=i'    => \$NUM_PAGES,
     'debug'          => \$DEBUG,
     'verbose'        => \$VERBOSE,
     'help|usage'     => \&usage,
@@ -83,63 +84,81 @@ GetOptions(
 # Retrieve all installations from root
 #
 my $ua = LWP::UserAgent->new();
-my $req = new HTTP::Request GET => $URL;
-my $res = $ua->request($req);
-my $quotes_page = $res->content;
 
-#my $quotes_page = get $URL;
-die("Unable to retrieve content from '$URL'") unless $quotes_page;
+# Is this a single get or more than one page?
+#
+if ($NUM_PAGES and ($NUM_PAGES >= 1)) {
+    for (my $i=0; $i<=$NUM_PAGES; $i++) {
+        my $page_url = $URL . $i;
+        outputContent($page_url);
+    }
 
-$DEBUG and print STDERR $quotes_page;
+# Single page
+#
+} else {
+    outputContent($URL);
+}
 
-my @lines = split(/\n/, $quotes_page);
-my $qopen = 0;
-my $sopen = 0;
-my ($qtext, $stext, $print);
-foreach my $line (@lines) {
-    if ($qopen) {
-        if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
-            $qtext .= &cleanup($1);
-            $qopen = 0;
+sub outputContent {
+    my $url = shift;
 
-        } else {
-            $qtext .= &cleanup($line);
+    my $req = new HTTP::Request GET => $url;
+    my $res = $ua->request($req);
+    my $quotes_page = $res->content;
+
+    die("Unable to retrieve content from '$url'") unless $quotes_page;
+
+    $DEBUG and print STDERR $quotes_page;
+
+    my @lines = split(/\n/, $quotes_page);
+    my $qopen = 0;
+    my $sopen = 0;
+    my ($qtext, $stext, $print);
+    foreach my $line (@lines) {
+        if ($qopen) {
+            if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
+                $qtext .= &cleanup($1);
+                $qopen = 0;
+    
+            } else {
+                $qtext .= &cleanup($line);
+            }
+
+        } elsif ($sopen) {
+            if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
+                $stext .= &cleanup($1);
+                $sopen = 0;
+
+            } else {
+                $stext .= &cleanup($line);
+            }
+
+        } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
+            $qopen = 1;
+            $qtext = &cleanup($1);
+	        $print = 0;
+
+            if ($qtext =~ m/^([^$QUOTE_CLOSE]+)$QUOTE_CLOSE/) {
+                $qtext = $1;
+                $qopen = 0;
+            }
+
+        } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
+            $sopen = 1;
+            $stext = &cleanup($1);
+	        $print = 0;
+
+            if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
+                $stext = $1;
+                $sopen = 0;
+            }
+
+        } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print) {
+	        print STDOUT "$qtext###$stext\n";
+	        $qtext = "";
+	        $stext = "";
+	        $print = 1;
         }
-
-    } elsif ($sopen) {
-        if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
-            $stext .= &cleanup($1);
-            $sopen = 0;
-
-        } else {
-            $stext .= &cleanup($line);
-        }
-
-    } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
-        $qopen = 1;
-        $qtext = &cleanup($1);
-	$print = 0;
-
-        if ($qtext =~ m/^([^$QUOTE_CLOSE]+)$QUOTE_CLOSE/) {
-            $qtext = $1;
-            $qopen = 0;
-        }
-
-    } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
-        $sopen = 1;
-        $stext = &cleanup($1);
-	$print = 0;
-
-        if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
-            $stext = $1;
-            $sopen = 0;
-        }
-
-    } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print) {
-	print STDOUT "$qtext###$stext\n";
-	$qtext = "";
-	$stext = "";
-	$print = 1;
     }
 }
 
@@ -166,8 +185,8 @@ sub usage {
     $err and print STDERR "$err\n";
 
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --url <quotes page> [ --debug --verbose ] > output_file
-Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page=1 --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<'> quotes.txt
+Usage:   ./$COMMAND --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --source-open <text or pattern> --source-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
+Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<' --num-pages 5 > quotes.txt
 _USAGE
 
     exit(1);

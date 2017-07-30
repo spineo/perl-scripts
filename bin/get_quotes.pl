@@ -3,9 +3,8 @@
 #------------------------------------------------------------------------------
 # Name       : get_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage      : $0 --url <source url>
-# Description: Script parses data from a quotes sources (embed this script
-# in a wrapper to page through topics, results sets, etc.)
+# Usage:     : $0 --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --source-open <text or pattern> --source-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
+# Description: Script parses data from a quotes source and optionally, pages through the results. The quote-open/quote-close and source-open/source-close parameters must be provided.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +32,9 @@ use warnings;
 # Example:
 # export PATH=/home/svpineo/perl-scripts/bin:$PATH
 # export PERL5LIB=/home/svpineo/perl-scripts/lib
+#
+# If needed, handle SSL gets:
+# export PERL_LWP_SSL_VERIFY_HOSTNAME=0
 #
 use lib qw(../lib);
 

@@ -93,6 +93,7 @@ my $ua = LWP::UserAgent->new();
 #
 if ($NUM_PAGES and ($NUM_PAGES >= 1)) {
     for (my $i=0; $i<=$NUM_PAGES; $i++) {
+        print STDERR "Processing page $i...\n";
         my $page_url = $URL . $i;
         outputContent($page_url);
     }

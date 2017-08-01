@@ -64,6 +64,8 @@ our $DEBUG   = 0;
 
 our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE, $NUM_PAGES);
 
+our %QUOTE_SEEN;
+
 use Getopt::Long;
 GetOptions(
     'url=s'          => \$URL,
@@ -155,8 +157,9 @@ sub outputContent {
                 $sopen = 0;
             }
 
-        } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print) {
+        } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print && ! $QUOTE_SEEN{$qtext}) {
 	        print STDOUT "$qtext###$stext\n";
+            $QUOTE_SEEN{$qtext} = 1;
 	        $qtext = "";
 	        $stext = "";
 	        $print = 1;

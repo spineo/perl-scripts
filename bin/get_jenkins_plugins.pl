@@ -43,7 +43,7 @@ use lib qw(../lib);
 
 use Getopt::Long;
 use Carp qw(confess);
-use Data::Dumper;
+# use Data::Dumper;
 
 use LWP::Simple;
 use Cwd qw(cwd);

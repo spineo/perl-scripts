@@ -2,11 +2,11 @@
 
 Utility Perl Scripts
 
-## _get_jenkins_plugins_
+## Mine Jenkins Plugins (_get_jenkins_plugins.pl_)
 
-About: Scrape the Jenkins Updates repository for latest version of plugins, download the plugins, and create an archive.
+__About__: Scrape the Jenkins Updates repository for latest version of plugins, download the plugins, and create an archive.
 
-Usage: ./get_jenkins.pl [ --all | --filter "pattern" ] `--dest-path "downloads location" --help
+__Usage__: ./get_jenkins_plugins.pl [ --all | --filter "pattern" ] `--dest-path "downloads location" --help
 
 Invoke _./get_jenkins_plugins.pl --help_ for usage information/examples
 
@@ -19,5 +19,7 @@ Include the /bin path in the PATH var
 Use relative path below or export PERL5LIB var to include the /lib path
 
 Example:
+```
 export PATH=/home/svpineo/perl-scripts/bin:$PATH
 export PERL5LIB=/home/svpineo/perl-scripts/lib`
+```

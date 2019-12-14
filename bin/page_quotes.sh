@@ -1,23 +1,28 @@
 #!/bin/sh
 
+# Main parameters
+#
 SCRIPT=get_quotes.pl
-OUT_FILE=quotes.txt
-MAX_INDEX=1
 
+# Out file includes path (if not current)
+#
+OUT_FILE=quotes.txt
+MAX_INDEX=0
+QUOTES_URL=http://www.goodreads.com/quotes/tag/love?page=
+ADDED_PARAMS=--quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<'
+
+# Extract the command-line options
+#
 while [ $# -gt 1 ]; do
     key=$1
 
     case $key in
-        -u|--quotes-url)
-            QUOTES_URL="$2"
-            shift
-        ;;
         -m|--max-index)
             MAX_INDEX=$2
             shift # past argument
         ;;
         *)
-            MAX_INDEX=1
+            MAX_INDEX=0
             QUOTES_URL=""
             shift
         ;;
@@ -25,8 +30,18 @@ while [ $# -gt 1 ]; do
     shift # past argument or value
 done
 
-if [[ ($MAX_INDEX > 1) && (! -z $QUOTES_URL) ]]; then
+# Remove the output file if it exists
+#
+if [ -f $OUT_FILE ]; then
+    `rm $OUT_FILE`;
+fi
+
+# Page and run the script
+#
+if [ $MAX_INDEX > 1 ]; then
     for i in $(seq 1 $MAX_INDEX); do
-        echo $i
+        echo "Page=$i"
+        quotes_url=$QUOTES_URL . $i
+        `./$SCRIPT --url $quotes_url $ADDED_PARAMS >> $OUT_FILE`;
     done
 fi

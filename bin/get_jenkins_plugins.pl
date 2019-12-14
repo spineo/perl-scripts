@@ -1,9 +1,9 @@
 #!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
-# Name       : get_jenkins.pl
+# Name       : get_jenkins_plugins.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage      : ./get_jenkins.pl [ --all --filter "pattern" '
+# Usage      : ./get_jenkins_plugins.pl [ --all --filter "pattern" '
 #                                 --dest-path "downloads location" ]
 # Description: Scrape the Jenkins Updates repo for latest version of plugins,
 # download the plugins, and create an archive.

@@ -6,7 +6,7 @@ Utility Perl Scripts
 
 __About__: Scrape the Jenkins Updates repository for latest version of plugins, download the plugins, and create an archive.
 
-__Usage__: ./get_jenkins_plugins.pl [ --all | --filter "pattern" ] `--dest-path "downloads location" --help
+__Usage__: ./get_jenkins_plugins.pl [ --all | --filter "pattern" ] --dest-path "downloads location" --help
 
 Invoke _./get_jenkins_plugins.pl --help_ for usage information/examples
 

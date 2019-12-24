@@ -10,7 +10,7 @@
 # Notes:
 # * In order to get anything, the --all or --filter options must be used.
 # * Using --dest-path recommended (this were the *hpi files are dumped)
-# * Ensure that LWP::Simple installed/compatible on the Mac OS
+# * Ensure that LWP::Simple installed/compatible on the Mac OS (or Linux distribution)
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

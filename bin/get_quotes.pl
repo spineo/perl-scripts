@@ -19,7 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-# Copyright (c) 2017 Stuart Pineo
+# Copyright (c) 2017,2020 Stuart Pineo
 #
 #------------------------------------------------------------------------------
 
@@ -192,7 +192,7 @@ sub usage {
 
     print STDERR <<_USAGE;
 Usage:   ./$COMMAND --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --source-open <text or pattern> --source-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
-Example: ./$COMMAND --url http://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<' --num-pages 5 > quotes.txt
+Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<' --num-pages 5 > quotes.txt
 _USAGE
 
     exit(1);

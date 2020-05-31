@@ -3,8 +3,8 @@
 #------------------------------------------------------------------------------
 # Name       : get_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage:     : $0 --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --author-open <text or pattern> --author-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
-# Description: Script parses data from a quotes author and optionally, pages through the results. The quote-open/quote-close and author-open/author-close parameters must be provided.
+# Usage:     : $0 --url <quotes page> --quote-open <text or regex> --quote-close <text of regex> --author-open <text or regex> --author-close <text or regex> --context-open <text or regex> --context-close <text or regex> --block-end <text or regex> [ --num-pages <number of pages> --delim <text> --debug --verbose ] > output_file
+# Description: Script parses data from a quotes author and optionally, pages through the results. The quote-open/quote-close and author-open/author-close as well as block-end command-line options must be provided but the context (i.e., book or other reference) is optional. The --delim command-line option can be used to override the default delimiter.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -62,28 +62,32 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $NUM_PAGES);
+our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $CONTEXT_OPEN, $CONTEXT_CLOSE, $BLOCK_END, $NUM_PAGES);
 
 our %QUOTE_SEEN;
 
 use Getopt::Long;
 GetOptions(
-    'url=s'          => \$URL,
-    'quote-open=s'   => \$QUOTE_OPEN,
-    'quote-close=s'  => \$QUOTE_CLOSE,
-    'author-open=s'  => \$AUTHOR_OPEN,
-    'author-close=s' => \$AUTHOR_CLOSE,
-    'num-pages=i'    => \$NUM_PAGES,
-    'debug'          => \$DEBUG,
-    'verbose'        => \$VERBOSE,
-    'help|usage'     => \&usage,
+    'url=s'           => \$URL,
+    'quote-open=s'    => \$QUOTE_OPEN,
+    'quote-close=s'   => \$QUOTE_CLOSE,
+    'author-open=s'   => \$AUTHOR_OPEN,
+    'author-close=s'  => \$AUTHOR_CLOSE,
+    'context-open=s'  => \$CONTEXT_OPEN,
+    'context-close=s' => \$CONTEXT_CLOSE,
+    'block-end=s'     => \$BLOCK_END,
+    'num-pages=i'     => \$NUM_PAGES,
+    'debug'           => \$DEBUG,
+    'verbose'         => \$VERBOSE,
+    'help|usage'      => \&usage,
 );
 
-! $URL         and usage("--url must be set");
-! $QUOTE_OPEN  and usage("--quote-open must be set");
-! $QUOTE_CLOSE and usage("--quote-close must be set");
-! $AUTHOR_OPEN   and usage("--author-open must be set");
-! $AUTHOR_CLOSE  and usage("--author-close must be set");
+! $URL          and usage("--url must be set");
+! $QUOTE_OPEN   and usage("--quote-open must be set");
+! $QUOTE_CLOSE  and usage("--quote-close must be set");
+! $AUTHOR_OPEN  and usage("--author-open must be set");
+! $AUTHOR_CLOSE and usage("--author-close must be set");
+! $BLOCK_END    and usage("--block-end must be set");
 
 # Retrieve all installations from root
 #
@@ -116,9 +120,12 @@ sub outputContent {
     $DEBUG and print STDERR $quotes_page;
 
     my @lines = split(/\n/, $quotes_page);
-    my $qopen = 0;
-    my $sopen = 0;
-    my ($qtext, $stext, $print);
+    my $qopen     = 0;
+    my $aopen     = 0;
+    my $copen     = 0;
+    my $block_end = 0;
+    my ($qtext, $atext, $print);
+    my $ctext = "";
     foreach my $line (@lines) {
         if ($qopen) {
             if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
@@ -129,13 +136,22 @@ sub outputContent {
                 $qtext .= &cleanup($line);
             }
 
-        } elsif ($sopen) {
+        } elsif ($aopen) {
             if ($line =~ m/([^$AUTHOR_CLOSE]*)</) {
-                $stext .= &cleanup($1);
-                $sopen = 0;
+                $atext .= &cleanup($1);
+                $aopen = 0;
 
             } else {
-                $stext .= &cleanup($line);
+                $atext .= &cleanup($line);
+            }
+
+        } elsif ($copen) {
+            if ($line =~ m/([^$CONTEXT_CLOSE]*)</) {
+                $ctext .= &cleanup($1);
+                $copen = 0;
+    
+            } else {
+                $ctext .= &cleanup($line);
             }
 
         } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
@@ -149,20 +165,31 @@ sub outputContent {
             }
 
         } elsif ($line =~ m/$AUTHOR_OPEN(.*)/) {
-            $sopen = 1;
-            $stext = &cleanup($1);
+            $aopen = 1;
+            $atext = &cleanup($1);
 	        $print = 0;
 
-            if ($stext =~ m/^([^$AUTHOR_CLOSE]+)$AUTHOR_CLOSE/) {
-                $stext = $1;
-                $sopen = 0;
+            if ($atext =~ m/^([^$AUTHOR_CLOSE]+)$AUTHOR_CLOSE/) {
+                $atext = $1;
+                $aopen = 0;
             }
 
-        } elsif (! ($qopen || $sopen) && $qtext && $stext && ! $print && ! $QUOTE_SEEN{$qtext}) {
-	        print STDOUT "$qtext###$stext\n";
+        } elsif ($line =~ m/$CONTEXT_OPEN(.*)/) {
+            $copen = 1;
+            $ctext = &cleanup($1);
+	        $print = 0;
+
+            if ($ctext =~ m/^([^$CONTEXT_CLOSE]+)$CONTEXT_CLOSE/) {
+                $ctext = $1;
+                $copen = 0;
+            }
+
+        } elsif (($line =~ m/$BLOCK_END(.*)/) && $qtext && $atext && ! $print && ! $QUOTE_SEEN{$qtext}) {
+	        print STDOUT "$qtext###$atext###$ctext\n";
             $QUOTE_SEEN{$qtext} = 1;
 	        $qtext = "";
-	        $stext = "";
+	        $atext = "";
+            $ctext = "";
 	        $print = 1;
         }
     }
@@ -177,6 +204,7 @@ sub cleanup {
 
     $text =~ s/\n/ /g;
     $text =~ s/\&[a-z]+\;//g;
+    $text =~ s/,$//;
 
     return trim($text);
 }
@@ -191,8 +219,8 @@ sub usage {
     $err and print STDERR "$err\n";
 
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --author-open <text or pattern> --author-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
-Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --author-open "\"authorOrTitle\" [^>]+>" --author-close '<' --num-pages 5 > quotes.txt
+Usage:   ./$COMMAND --url <quotes page> --quote-open <text or regex> --quote-close <text of regex> --author-open <text or regex> --author-close <text or regex> --block-end <text or regex> [ --context-open <text or regex> --context-close <text or regex> --num-pages <number of pages> --delim <text> --debug --verbose ] > output_file
+Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --author-open "\"authorOrTitle\">" --author-close '<' --context-open "\"authorOrTitle\"\s+href=[^>]+>" --context-close '<' --block-end "quoteDetails" --num-pages 5 > quotes.txt
 _USAGE
 
     exit(1);

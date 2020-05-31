@@ -13,6 +13,9 @@ QUOTE_OPEN="\"quoteText\">"
 QUOTE_CLOSE="<"
 AUTHOR_OPEN="\"authorOrTitle\">"
 AUTHOR_CLOSE="<"
+CONTEXT_OPEN="\"authorOrTitle\"\s+href=[^>]+>"
+CONTEXT_CLOSE="<"
+BLOCK_END="quoteDetails"
 
 # Parameters to export (site specific, as needed)
 #
@@ -49,7 +52,7 @@ eval "touch $OUT_FILE"
 if [ $MAX_INDEX > 1 ]; then
     for i in $(seq 1 $MAX_INDEX); do
         quotes_url="$QUOTES_URL$i"
-        cmd="./$SCRIPT --url $quotes_url --quote-open '$QUOTE_OPEN' --quote-close '$QUOTE_CLOSE' --author-open '$AUTHOR_OPEN' --author-close '$AUTHOR_CLOSE' >> $OUT_FILE"
+        cmd="./$SCRIPT --url $quotes_url --quote-open '$QUOTE_OPEN' --quote-close '$QUOTE_CLOSE' --author-open '$AUTHOR_OPEN' --author-close '$AUTHOR_CLOSE' --context-open '$CONTEXT_OPEN' --context-close '$CONTEXT_CLOSE' --block-end '$BLOCK_END' >> $OUT_FILE"
         echo "Running command: $cmd"
         eval $cmd
     done

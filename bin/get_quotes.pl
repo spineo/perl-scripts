@@ -3,8 +3,8 @@
 #------------------------------------------------------------------------------
 # Name       : get_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage:     : $0 --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --source-open <text or pattern> --source-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
-# Description: Script parses data from a quotes source and optionally, pages through the results. The quote-open/quote-close and source-open/source-close parameters must be provided.
+# Usage:     : $0 --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --author-open <text or pattern> --author-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
+# Description: Script parses data from a quotes author and optionally, pages through the results. The quote-open/quote-close and author-open/author-close parameters must be provided.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE, $NUM_PAGES);
+our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $NUM_PAGES);
 
 our %QUOTE_SEEN;
 
@@ -71,8 +71,8 @@ GetOptions(
     'url=s'          => \$URL,
     'quote-open=s'   => \$QUOTE_OPEN,
     'quote-close=s'  => \$QUOTE_CLOSE,
-    'source-open=s'  => \$SOURCE_OPEN,
-    'source-close=s' => \$SOURCE_CLOSE,
+    'author-open=s'  => \$AUTHOR_OPEN,
+    'author-close=s' => \$AUTHOR_CLOSE,
     'num-pages=i'    => \$NUM_PAGES,
     'debug'          => \$DEBUG,
     'verbose'        => \$VERBOSE,
@@ -82,8 +82,8 @@ GetOptions(
 ! $URL         and usage("--url must be set");
 ! $QUOTE_OPEN  and usage("--quote-open must be set");
 ! $QUOTE_CLOSE and usage("--quote-close must be set");
-! $SOURCE_OPEN   and usage("--source-open must be set");
-! $SOURCE_CLOSE  and usage("--source-close must be set");
+! $AUTHOR_OPEN   and usage("--author-open must be set");
+! $AUTHOR_CLOSE  and usage("--author-close must be set");
 
 # Retrieve all installations from root
 #
@@ -130,7 +130,7 @@ sub outputContent {
             }
 
         } elsif ($sopen) {
-            if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
+            if ($line =~ m/([^$AUTHOR_CLOSE]*)</) {
                 $stext .= &cleanup($1);
                 $sopen = 0;
 
@@ -148,12 +148,12 @@ sub outputContent {
                 $qopen = 0;
             }
 
-        } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
+        } elsif ($line =~ m/$AUTHOR_OPEN(.*)/) {
             $sopen = 1;
             $stext = &cleanup($1);
 	        $print = 0;
 
-            if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
+            if ($stext =~ m/^([^$AUTHOR_CLOSE]+)$AUTHOR_CLOSE/) {
                 $stext = $1;
                 $sopen = 0;
             }
@@ -191,8 +191,8 @@ sub usage {
     $err and print STDERR "$err\n";
 
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --source-open <text or pattern> --source-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
-Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --source-open "\"authorOrTitle\" [^>]+>" --source-close '<' --num-pages 5 > quotes.txt
+Usage:   ./$COMMAND --url <quotes page> --quote-open <text or pattern> --quote-close <text of pattern> --author-open <text or pattern> --author-close <text or pattern> [ --num-pages <number of pages> --debug --verbose ] > output_file
+Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --author-open "\"authorOrTitle\" [^>]+>" --author-close '<' --num-pages 5 > quotes.txt
 _USAGE
 
     exit(1);

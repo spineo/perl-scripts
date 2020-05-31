@@ -7,12 +7,12 @@ SCRIPT=get_quotes.pl
 # Out file includes path (if not current)
 #
 OUT_FILE=./quotes.txt
-MAX_INDEX=2
+MAX_INDEX=1
 QUOTES_URL=https://www.goodreads.com/quotes/tag/love?page=
 QUOTE_OPEN="\"quoteText\">"
 QUOTE_CLOSE="<"
-SOURCE_OPEN="\"authorOrTitle\">"
-SOURCE_CLOSE="<"
+AUTHOR_OPEN="\"authorOrTitle\">"
+AUTHOR_CLOSE="<"
 
 # Parameters to export (site specific, as needed)
 #
@@ -47,14 +47,10 @@ eval "touch $OUT_FILE"
 # Page and run the script
 #
 if [ $MAX_INDEX > 1 ]; then
-    #for i in $(seq 1 $MAX_INDEX); do
-    i=1
-    while [ "$i" != "$MAX_INDEX" ]; do 
-        #echo "Page=$i"
+    for i in $(seq 1 $MAX_INDEX); do
         quotes_url="$QUOTES_URL$i"
-        cmd="./$SCRIPT --url $quotes_url --quote-open '$QUOTE_OPEN' --quote-close '$QUOTE_CLOSE' --source-open '$SOURCE_OPEN' --source-close '$SOURCE_CLOSE' >> $OUT_FILE"
+        cmd="./$SCRIPT --url $quotes_url --quote-open '$QUOTE_OPEN' --quote-close '$QUOTE_CLOSE' --author-open '$AUTHOR_OPEN' --author-close '$AUTHOR_CLOSE' >> $OUT_FILE"
         echo "Running command: $cmd"
         eval $cmd
-        i=$((i+1))
     done
 fi

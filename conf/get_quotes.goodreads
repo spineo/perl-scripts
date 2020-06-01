@@ -1,0 +1,17 @@
+URL=https://www.goodreads.com/quotes/tag/<PATTERN>?page=<PAGE>
+BLOCK_END=quoteDetails    # End of block
+DELIM=###
+
+# Quote and Author are the core tags below (the rest are optional, depending on the site)
+#
+QUOTE_OPEN="quoteText">
+QUOTE_CLOSE=<
+AUTHOR_OPEN="authorOrTitle">
+AUTHOR_CLOSE=<
+SOURCE_OPEN="authorOrTitle" +href=[^>]+>
+SOURCE_CLOSE=<
+
+# Optional (site specific)
+#
+NUM_PAGES=1
+URL_PATTERNS=love,life

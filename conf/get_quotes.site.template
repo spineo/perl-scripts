@@ -1,0 +1,17 @@
+URL=https://siteurl/<PATTERN>?page=<PAGE> (or https://siteurl/)
+BLOCK_END=<text or regex>    # End of block
+DELIM=###
+
+# Quote and Author are the core tags below (the rest are optional, depending on the site)
+#
+QUOTE_OPEN=<text or regex>
+QUOTE_CLOSE=<text or regex>
+AUTHOR_OPEN=<text or regex>
+AUTHOR_CLOSE=<text or regex>
+
+# Optional (site specific)
+#
+NUM_PAGES=
+URL_PATTERNS=<comma separated patterns>
+SOURCE_OPEN=<text or regex>
+SOURCE_CLOSE=<text or regex>

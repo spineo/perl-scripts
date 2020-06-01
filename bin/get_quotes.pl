@@ -3,8 +3,10 @@
 #------------------------------------------------------------------------------
 # Name       : get_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage:     : $0 --url <quotes page> --quote-open <text or regex> --quote-close <text of regex> --author-open <text or regex> --author-close <text or regex> --context-open <text or regex> --context-close <text or regex> --block-end <text or regex> [ --num-pages <number of pages> --delim <text> --debug --verbose ] > output_file
-# Description: Script parses data from a quotes author and optionally, pages through the results. The quote-open/quote-close and author-open/author-close as well as block-end command-line options must be provided but the context (i.e., book or other reference) is optional. The --delim command-line option can be used to override the default delimiter.
+# Usage:     : $0 --config <absolute or relative path to config file> [ --debug --verbose ] > output_file
+# Description: Script parses data from a quotation block (which should include at the very least the quote and author). The required command-line option is the 
+#              site specific configuration file where the url, tag open/close patterns, and block end (i.e., end of a quotation section) can be specified. This
+#              file can be created by modifying the get_quotes.site.template file checked into the "conf" directory.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,7 +50,7 @@ use Cwd qw(cwd);
 
 # These found in ../lib
 #
-use Util::GenericUtils qw(trim is_path);
+use Util::GenericUtils qw(trim trim_all is_path);
 
 # Global variables
 #
@@ -62,54 +64,68 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($URL, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $CONTEXT_OPEN, $CONTEXT_CLOSE, $BLOCK_END, $NUM_PAGES);
+our ($CONFIG, $URL, $BLOCK_END, $DELIM, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE, $NUM_PAGES);
+our @URL_PATTERNS;
 
 our %QUOTE_SEEN;
 
 use Getopt::Long;
 GetOptions(
-    'url=s'           => \$URL,
-    'quote-open=s'    => \$QUOTE_OPEN,
-    'quote-close=s'   => \$QUOTE_CLOSE,
-    'author-open=s'   => \$AUTHOR_OPEN,
-    'author-close=s'  => \$AUTHOR_CLOSE,
-    'context-open=s'  => \$CONTEXT_OPEN,
-    'context-close=s' => \$CONTEXT_CLOSE,
-    'block-end=s'     => \$BLOCK_END,
-    'num-pages=i'     => \$NUM_PAGES,
+    'config=s'        => \$CONFIG,
     'debug'           => \$DEBUG,
     'verbose'         => \$VERBOSE,
     'help|usage'      => \&usage,
 );
 
-! $URL          and usage("--url must be set");
-! $QUOTE_OPEN   and usage("--quote-open must be set");
-! $QUOTE_CLOSE  and usage("--quote-close must be set");
-! $AUTHOR_OPEN  and usage("--author-open must be set");
-! $AUTHOR_CLOSE and usage("--author-close must be set");
-! $BLOCK_END    and usage("--block-end must be set");
+# Parse the configuration file
+#
+! $CONFIG and usage("--config must be set.");
+! -f $CONFIG and usage("File '$CONFIG' not found or is not readable.");
+
+my $ref = &parseConfig($CONFIG);
+$DEBUG and print STDERR Data::Dumper->Dump([$ref]);
+
+# Mandatory fields
+#
+$URL          = defined($ref->{'URL'}) ? $ref->{'URL'} : die("The 'URL' key is missing (or not defined) in the config file.");
+$BLOCK_END    = defined($ref->{'BLOCK_END'}) ? $ref->{'BLOCK_END'} : die("The 'BLOCK_END' key is missing (or not defined) in the config file.");
+$DELIM        = defined($ref->{'DELIM'}) ? $ref->{'DELIM'} : die("The 'DELIM' key is missing (or not defined) in the config file.");
+$QUOTE_OPEN   = defined($ref->{'QUOTE_OPEN'}) ? $ref->{'QUOTE_OPEN'} : die("The 'QUOTE_OPEN' key is missing (or not defined) in the config file.");
+$QUOTE_CLOSE  = defined($ref->{'QUOTE_CLOSE'}) ? $ref->{'QUOTE_CLOSE'} : die("The 'QUOTE_CLOSE' key is missing (or not defined) in the config file.");
+$AUTHOR_OPEN  = defined($ref->{'AUTHOR_OPEN'}) ? $ref->{'AUTHOR_OPEN'} : die("The 'AUTHOR_OPEN' key is missing (or not defined) in the config file.");
+$AUTHOR_CLOSE = defined($ref->{'AUTHOR_CLOSE'}) ? $ref->{'AUTHOR_CLOSE'} : die("The 'AUTHOR_CLOSE' key is missing (or not defined) in the config file.");
+
+# Optional fields
+#
+@URL_PATTERNS = ();
+$ref->{'URL_PATTERNS'} and @URL_PATTERNS = split /,/, &trim_all($ref->{'URL_PATTERNS'});
+$NUM_PAGES    = $ref->{'NUM_PAGES'} || '';
+$SOURCE_OPEN  = $ref->{'SOURCE_OPEN'} || '';
+$SOURCE_CLOSE = $ref->{'SOURCE_CLOSE'} || '';
+
 
 # Retrieve all installations from root
 #
 my $ua = LWP::UserAgent->new();
 
-# Is this a single get or more than one page?
-#
-if ($NUM_PAGES and ($NUM_PAGES >= 1)) {
-    for (my $i=1; $i<=$NUM_PAGES; $i++) {
-        print STDERR "Processing page $i...\n";
-        my $page_url = $URL . $i;
-        outputContent($page_url);
+if (@URL_PATTERNS) {
+
+    foreach my $pattern (@URL_PATTERNS) {    
+
+        my $url = $URL;
+        $url =~ s/<PATTERN>/$pattern/;
+
+        &processURL($url);
     }
 
-# Single page
-#
 } else {
-    outputContent($URL);
+    &processURL($URL);
 }
 
 sub outputContent {
     my $url = shift;
+
+    $DEBUG && print STDERR "URL: $url\n";
 
     my $req = new HTTP::Request GET => $url;
     my $res = $ua->request($req);
@@ -117,15 +133,13 @@ sub outputContent {
 
     die("Unable to retrieve content from '$url'") unless $quotes_page;
 
-    $DEBUG and print STDERR $quotes_page;
-
     my @lines = split(/\n/, $quotes_page);
     my $qopen     = 0;
     my $aopen     = 0;
-    my $copen     = 0;
+    my $sopen     = 0;
     my $block_end = 0;
     my ($qtext, $atext, $print);
-    my $ctext = "";
+    my $stext = "";
     foreach my $line (@lines) {
         if ($qopen) {
             if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
@@ -145,13 +159,13 @@ sub outputContent {
                 $atext .= &cleanup($line);
             }
 
-        } elsif ($copen) {
-            if ($line =~ m/([^$CONTEXT_CLOSE]*)</) {
-                $ctext .= &cleanup($1);
-                $copen = 0;
+        } elsif ($sopen) {
+            if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
+                $stext .= &cleanup($1);
+                $sopen = 0;
     
             } else {
-                $ctext .= &cleanup($line);
+                $stext .= &cleanup($line);
             }
 
         } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
@@ -174,24 +188,86 @@ sub outputContent {
                 $aopen = 0;
             }
 
-        } elsif ($line =~ m/$CONTEXT_OPEN(.*)/) {
-            $copen = 1;
-            $ctext = &cleanup($1);
+        } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
+            $sopen = 1;
+            $stext = &cleanup($1);
 	        $print = 0;
 
-            if ($ctext =~ m/^([^$CONTEXT_CLOSE]+)$CONTEXT_CLOSE/) {
-                $ctext = $1;
-                $copen = 0;
+            if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
+                $stext = $1;
+                $sopen = 0;
             }
 
         } elsif (($line =~ m/$BLOCK_END(.*)/) && $qtext && $atext && ! $print && ! $QUOTE_SEEN{$qtext}) {
-	        print STDOUT "$qtext###$atext###$ctext\n";
+	        print STDOUT "$qtext$DELIM$atext$DELIM$stext\n";
             $QUOTE_SEEN{$qtext} = 1;
 	        $qtext = "";
 	        $atext = "";
-            $ctext = "";
+            $stext = "";
 	        $print = 1;
         }
+    }
+}
+
+#------------------------------------------------------------------------------
+# parseConfig: Parse the configuration file, return a nested reference structure
+#------------------------------------------------------------------------------
+
+sub parseConfig {
+    my $config = shift;
+
+    my $ref = {};
+
+    open(CONFIG, $config) or die("Unable to open file '$config' for reading: $!");
+    while(<CONFIG>) {
+
+        # Skip lines starting with comments
+        #
+        next if m/^#/;
+
+        # Skip empty lines
+        #
+        next if m/^\s*$/;
+
+        chomp;
+
+        # Remove potentially trailing comments
+        #
+        s/\s+#.*//;
+
+        m/^([^=]+)=(.*)/;
+        
+        my $key = $1;
+        my $val = $2;
+
+        ($key and $val) and $ref->{$key} = $val;
+    }
+    close CONFIG;
+
+    return $ref;
+}
+
+#------------------------------------------------------------------------------
+# processURL: Encode URL based on number of pages
+#------------------------------------------------------------------------------
+
+sub processURL {
+    my $url = shift;
+
+    # Is this a single get or more than one page?
+    #
+    if ($NUM_PAGES and ($NUM_PAGES >= 1)) {
+        for (my $i=1; $i<=$NUM_PAGES; $i++) {
+            my $page_url = $url;
+            $page_url =~ s/<PAGE>/$i/;
+            print STDERR "Processing page $i...\n";
+            outputContent($page_url);
+        }
+
+    # Single page
+    #
+    } else {
+        outputContent($url);
     }
 }
 
@@ -219,8 +295,8 @@ sub usage {
     $err and print STDERR "$err\n";
 
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --url <quotes page> --quote-open <text or regex> --quote-close <text of regex> --author-open <text or regex> --author-close <text or regex> --block-end <text or regex> [ --context-open <text or regex> --context-close <text or regex> --num-pages <number of pages> --delim <text> --debug --verbose ] > output_file
-Example: ./$COMMAND --url https://www.goodreads.com/quotes/tag/love?page= --quote-open '"quoteText">' --quote-close '<' --author-open "\"authorOrTitle\">" --author-close '<' --context-open "\"authorOrTitle\"\s+href=[^>]+>" --context-close '<' --block-end "quoteDetails" --num-pages 5 > quotes.txt
+Usage:   ./$COMMAND --config <absolute or relative path to config file> [ --debug --verbose ] > output_file
+Example: ./$COMMAND --config ../conf/get_quotes.somequotesite --debug --verbose > quotes.txt
 _USAGE
 
     exit(1);

@@ -64,8 +64,7 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our ($CONFIG, $URL, $BLOCK_END, $DELIM, $QUOTE_OPEN, $QUOTE_CLOSE, $AUTHOR_OPEN, $AUTHOR_CLOSE, $SOURCE_OPEN, $SOURCE_CLOSE, $NUM_PAGES);
-our @URL_PATTERNS;
+our $CONFIG;
 
 our %QUOTE_SEEN;
 
@@ -87,21 +86,23 @@ $DEBUG and print STDERR Data::Dumper->Dump([$ref]);
 
 # Mandatory fields
 #
-$URL          = defined($ref->{'URL'}) ? $ref->{'URL'} : die("The 'URL' key is missing (or not defined) in the config file.");
-$BLOCK_END    = defined($ref->{'BLOCK_END'}) ? $ref->{'BLOCK_END'} : die("The 'BLOCK_END' key is missing (or not defined) in the config file.");
-$DELIM        = defined($ref->{'DELIM'}) ? $ref->{'DELIM'} : die("The 'DELIM' key is missing (or not defined) in the config file.");
-$QUOTE_OPEN   = defined($ref->{'QUOTE_OPEN'}) ? $ref->{'QUOTE_OPEN'} : die("The 'QUOTE_OPEN' key is missing (or not defined) in the config file.");
-$QUOTE_CLOSE  = defined($ref->{'QUOTE_CLOSE'}) ? $ref->{'QUOTE_CLOSE'} : die("The 'QUOTE_CLOSE' key is missing (or not defined) in the config file.");
-$AUTHOR_OPEN  = defined($ref->{'AUTHOR_OPEN'}) ? $ref->{'AUTHOR_OPEN'} : die("The 'AUTHOR_OPEN' key is missing (or not defined) in the config file.");
-$AUTHOR_CLOSE = defined($ref->{'AUTHOR_CLOSE'}) ? $ref->{'AUTHOR_CLOSE'} : die("The 'AUTHOR_CLOSE' key is missing (or not defined) in the config file.");
+our $URL          = defined($ref->{'URL'}) ? $ref->{'URL'} : die("The 'URL' key is missing (or not defined) in the config file.");
+our $BLOCK_END    = defined($ref->{'BLOCK_END'}) ? $ref->{'BLOCK_END'} : die("The 'BLOCK_END' key is missing (or not defined) in the config file.");
+our $DELIM        = defined($ref->{'DELIM'}) ? $ref->{'DELIM'} : die("The 'DELIM' key is missing (or not defined) in the config file.");
+our $QUOTE_OPEN   = defined($ref->{'QUOTE_OPEN'}) ? $ref->{'QUOTE_OPEN'} : die("The 'QUOTE_OPEN' key is missing (or not defined) in the config file.");
+our $QUOTE_CLOSE  = defined($ref->{'QUOTE_CLOSE'}) ? $ref->{'QUOTE_CLOSE'} : die("The 'QUOTE_CLOSE' key is missing (or not defined) in the config file.");
+our $AUTHOR_OPEN  = defined($ref->{'AUTHOR_OPEN'}) ? $ref->{'AUTHOR_OPEN'} : die("The 'AUTHOR_OPEN' key is missing (or not defined) in the config file.");
+our $AUTHOR_CLOSE = defined($ref->{'AUTHOR_CLOSE'}) ? $ref->{'AUTHOR_CLOSE'} : die("The 'AUTHOR_CLOSE' key is missing (or not defined) in the config file.");
 
 # Optional fields
 #
-@URL_PATTERNS = ();
+our @URL_PATTERNS = ();
 $ref->{'URL_PATTERNS'} and @URL_PATTERNS = split /,/, &trim_all($ref->{'URL_PATTERNS'});
-$NUM_PAGES    = $ref->{'NUM_PAGES'} || '';
-$SOURCE_OPEN  = $ref->{'SOURCE_OPEN'} || '';
-$SOURCE_CLOSE = $ref->{'SOURCE_CLOSE'} || '';
+our $NUM_PAGES    = $ref->{'NUM_PAGES'} || '';
+our $SOURCE_OPEN  = $ref->{'SOURCE_OPEN'} || '';
+our $SOURCE_CLOSE = $ref->{'SOURCE_CLOSE'} || '';
+our $TAGS_OPEN  = $ref->{'TAGS_OPEN'} || '';
+our $TAGS_CLOSE = $ref->{'TAGS_CLOSE'} || '';
 
 
 # Retrieve all installations from root
@@ -137,9 +138,11 @@ sub outputContent {
     my $qopen     = 0;
     my $aopen     = 0;
     my $sopen     = 0;
+    my $topen     = 0;
     my $block_end = 0;
     my ($qtext, $atext, $print);
     my $stext = "";
+    my $ttext = "";
     foreach my $line (@lines) {
         if ($qopen) {
             if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
@@ -166,6 +169,16 @@ sub outputContent {
     
             } else {
                 $stext .= &cleanup($line);
+            }
+
+        } elsif ($topen) {
+            if ($line =~ m/$TAGS_CLOSE/) {
+                $topen = 0;
+                $ttext .= $`;
+                $ttext = &urlCleanup($ttext);
+    
+            } else {
+                $ttext .= $line;
             }
 
         } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
@@ -198,12 +211,23 @@ sub outputContent {
                 $sopen = 0;
             }
 
+        } elsif ($line =~ m/$TAGS_OPEN(.*)/) {
+            $topen = 1;
+            $ttext = $1;
+	        $print = 0;
+
+            if ($ttext =~ m/$TAGS_CLOSE/) {
+                $ttext = &cleanup($`);
+                $topen = 0;
+            }
+
         } elsif (($line =~ m/$BLOCK_END(.*)/) && $qtext && $atext && ! $print && ! $QUOTE_SEEN{$qtext}) {
-	        print STDOUT "$qtext$DELIM$atext$DELIM$stext\n";
+	        print STDOUT "$qtext$DELIM$atext$DELIM$stext$DELIM$ttext\n";
             $QUOTE_SEEN{$qtext} = 1;
 	        $qtext = "";
 	        $atext = "";
             $stext = "";
+            $ttext = "";
 	        $print = 1;
         }
     }
@@ -283,6 +307,19 @@ sub cleanup {
     $text =~ s/,$//;
 
     return trim($text);
+}
+
+#------------------------------------------------------------------------------
+# urlCleanup: Remove URL references
+#------------------------------------------------------------------------------
+
+sub urlCleanup {
+    my $text = shift;
+
+    $text =~ s|<a href=[^>]+>||g;
+    $text =~ s|</a>||g;
+
+    return trim_all($text);
 }
 
 #------------------------------------------------------------------------------

@@ -8,10 +8,12 @@ QUOTE_OPEN=<text or regex>
 QUOTE_CLOSE=<text or regex>
 AUTHOR_OPEN=<text or regex>
 AUTHOR_CLOSE=<text or regex>
+TAGS_OPEN=<text or regex>
+TAGS_CLOSE=<text or regex>
 
 # Optional (site specific)
 #
-NUM_PAGES=
+NUM_PAGES=<int value>
 URL_PATTERNS=<comma separated patterns>
 SOURCE_OPEN=<text or regex>
 SOURCE_CLOSE=<text or regex>

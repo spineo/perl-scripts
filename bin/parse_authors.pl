@@ -49,6 +49,7 @@ our $VERBOSE = 0;
 our $DEBUG   = 0;
 
 our $DELIM;
+our @FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
 
 use Getopt::Long;
 GetOptions(
@@ -60,7 +61,8 @@ GetOptions(
 
 ! $DELIM and &usage("Command-line option --delim must be set");
 
-my $ref = {};
+
+our $REF = [];
 while(<STDIN>) {
     # Skip comments
     #
@@ -73,10 +75,17 @@ while(<STDIN>) {
     chomp;
 
     my @comps = split(/$DELIM/, $_);
-    if (@comps != 6) {
-        print STDERR "$_\n";
+    if (@comps != @FIELDS) {
+        die("Data error found in line: $_\n");
     }
+
+    my %author = ();
+    @author{@FIELDS} = @comps;
+
+    push(@$REF, \%author);
 }
+
+$DEBUG and print STDERR Data::Dumper->Dump( [ $REF ] );
 
 #------------------------------------------------------------------------------
 # usage: Print usage when invoked with -help or -usage

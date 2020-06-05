@@ -106,13 +106,55 @@ while(<AUTHORS>) {
     $AUTHORS_REF->{$name_sig} = \%author;
 }
 
+
+# Process the Quotes file
+#
+open(QUOTES, $QUOTES_FILE) or die("Unable to open file '$QUOTES_FILE' for reading.");
+while(<QUOTES>) {
+
+    # Skip comments
+    #
+    next if m/^#/;
+
+    # Skip empty lines
+    #
+    next if m/^\s*$/;
+
+    chomp;
+
+    my @comps = split(/$DELIM/, $_);
+    if (@comps != @QUOTE_FIELDS) {
+        die("Data error found in line: $_\n");
+    }
+
+    my %quote = ();
+    @quote{@QUOTE_FIELDS} = @comps;
+
+    my ($name_sig, $lname_sig) = &createSigs($quote{'author'});
+
+    # Check if this quote is associated with any of our authors
+    #
+    foreach my $auth_name_sig (keys %$AUTHORS_REF) {
+        my $auth_ref = $AUTHORS_REF->{$auth_name_sig};
+        my $auth_lname_sig = $auth_ref->{'lname_sig'};
+
+        # Compare on full name signature or last name signature (additional filter may be needed)
+        #
+        if (($name_sig eq $auth_name_sig) or ($lname_sig eq $auth_lname_sig)) {
+           push(@{$auth_ref->{'quotes'}}, \%quote);
+        }
+    }
+}
+
 $DEBUG and print STDERR Data::Dumper->Dump( [ $AUTHORS_REF ] );
+
 
 #------------------------------------------------------------------------------
 # createSigs: Construct the author signatures by removing all empty spaces, 
 # lowercasing, removing common pre/suffixes, and removing non-alpha characters
 # A separate signature on last name will also be returned.
 #------------------------------------------------------------------------------
+
 sub createSigs {
     
     my $name = shift;

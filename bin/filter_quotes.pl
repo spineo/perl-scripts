@@ -1,11 +1,12 @@
 #!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
-# Name       : parse_authors.pl
+# Name       : filter_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage      : ./parse_authors.pl --delim <input file delimiter> < <authors text file>
-# Description: Parse an "authors" text file. Fields include author full name, nationality,
-#              occupation, birth date, death date (if deceased), and optionally link to bio.
+# Usage      : ./filter_quotes.pl --quotes-file <quotes text file>
+#                                 --authors-file <authors text file>
+#                                 --delim <input file delimiter> 
+# Description: Filter quotes by applying the list in the authors file.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -34,7 +35,7 @@ use Data::Dumper;
 # These found in ../lib
 #
 use lib qw(../lib);
-use Util::GenericUtils qw(trim);
+use Util::GenericUtils qw(trim trim_all);
 
 # Global variables
 #
@@ -48,22 +49,37 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our $DELIM;
-our @FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
+our @QUOTE_FIELDS = ('quote', 'author', 'source', 'tags');
+our @AUTHOR_FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
+
+our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM);
 
 use Getopt::Long;
 GetOptions(
-    'delim=s'    => \$DELIM,
-    'debug'      => \$DEBUG,
-    'verbose'    => \$VERBOSE,
-    'help|usage' => \&usage,
+    'quotes-file=s'  => \$QUOTES_FILE,
+    'authors-file=s' => \$AUTHORS_FILE,
+    'delim=s'        => \$DELIM,
+    'debug'          => \$DEBUG,
+    'verbose'        => \$VERBOSE,
+    'help|usage'     => \&usage,
 );
 
-! $DELIM and &usage("Command-line option --delim must be set");
+# Validate the command-line options
+#
+! $QUOTES_FILE  and &usage("Command-line option --quotes-file must be set");
+! -f $QUOTES_FILE and die("File '$QUOTES_FILE' not found or is not readable.");
+
+! $AUTHORS_FILE and &usage("Command-line option --quotes-file must be set");
+! -f $AUTHORS_FILE and die("File '$AUTHORS_FILE' not found or is not readable.");
+
+! $DELIM       and &usage("Command-line option --delim must be set");
 
 
-our $REF = [];
-while(<STDIN>) {
+# Create the authors ref keyed on name signature
+#
+our $AUTHORS_REF = {};
+open(AUTHORS, $AUTHORS_FILE) or die("Unable to open file '$AUTHORS_FILE' for reading.");
+while(<AUTHORS>) {
     # Skip comments
     #
     next if m/^#/;
@@ -75,17 +91,56 @@ while(<STDIN>) {
     chomp;
 
     my @comps = split(/$DELIM/, $_);
-    if (@comps != @FIELDS) {
+    if (@comps != @AUTHOR_FIELDS) {
         die("Data error found in line: $_\n");
     }
 
     my %author = ();
-    @author{@FIELDS} = @comps;
+    @author{@AUTHOR_FIELDS} = @comps;
 
-    push(@$REF, \%author);
+
+    my ($name_sig, $lname_sig) = &createSigs($author{'name'});
+
+    $author{'lname_sig'} = $lname_sig;
+
+    $AUTHORS_REF->{$name_sig} = \%author;
 }
 
-$DEBUG and print STDERR Data::Dumper->Dump( [ $REF ] );
+$DEBUG and print STDERR Data::Dumper->Dump( [ $AUTHORS_REF ] );
+
+#------------------------------------------------------------------------------
+# createSigs: Construct the author signatures by removing all empty spaces, 
+# lowercasing, removing common pre/suffixes, and removing non-alpha characters
+# A separate signature on last name will also be returned.
+#------------------------------------------------------------------------------
+sub createSigs {
+    
+    my $name = shift;
+
+    # Lower case
+    #
+    $name = lc($name);
+
+    # Remove prefix/suffix
+    #
+    $name =~ s/\W(jr|sr)\.//;
+    $name =~ s/^sir\W//;
+
+    # Remove any extra/trailing spaces
+    #
+    $name = trim($name);
+
+    # Get the presumed last name (or single name)
+    #
+    my $lname = pop [ split(/ /, $name) ];
+
+    # Remove non-alpha characters
+    #
+    $name  =~ s/[^a-z]//g;
+    $lname =~ s/[^a-z]//g;
+
+    return ($name, $lname);
+}
 
 #------------------------------------------------------------------------------
 # usage: Print usage when invoked with -help or -usage
@@ -93,8 +148,8 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $REF ] );
 
 sub usage {
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --debug --verbose [ --delim <delimiter> ] < <authors input text file>
-Example: ./$COMMAND --debug --verbose --delim '###' < ./authors.txt
+Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> --delim <input file delimiter> [ --debug --verbose ]
+Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors.txt --delim '###' --debug
 _USAGE
 
     exit(1);

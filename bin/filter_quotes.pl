@@ -6,6 +6,7 @@
 # Usage      : ./filter_quotes.pl --quotes-file <quotes text file>
 #                                 --authors-file <authors text file>
 #                                 --delim <input file delimiter> 
+#                                 --max-size <maximum number of characters in quote>
 # Description: Filter quotes by applying the list in the authors file.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -52,13 +53,14 @@ our $DEBUG   = 0;
 our @QUOTE_FIELDS = ('quote', 'author', 'source', 'tags');
 our @AUTHOR_FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
 
-our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM);
+our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM, $MAX_SIZE);
 
 use Getopt::Long;
 GetOptions(
     'quotes-file=s'  => \$QUOTES_FILE,
     'authors-file=s' => \$AUTHORS_FILE,
     'delim=s'        => \$DELIM,
+    'max-size=i'     => \$MAX_SIZE,
     'debug'          => \$DEBUG,
     'verbose'        => \$VERBOSE,
     'help|usage'     => \&usage,
@@ -138,9 +140,11 @@ while(<QUOTES>) {
         my $auth_ref = $AUTHORS_REF->{$auth_name_sig};
         my $auth_lname_sig = $auth_ref->{'lname_sig'};
 
+        my $quote_len = length($quote{'quote'});
+
         # Compare on full name signature or last name signature (additional filter may be needed)
         #
-        if (($name_sig eq $auth_name_sig) or ($lname_sig eq $auth_lname_sig)) {
+        if (($name_sig eq $auth_name_sig or $lname_sig eq $auth_lname_sig) and (($MAX_SIZE and $quote_len <= $MAX_SIZE) or ! $MAX_SIZE)) {
            push(@{$auth_ref->{'quotes'}}, \%quote);
         }
     }
@@ -190,8 +194,9 @@ sub createSigs {
 
 sub usage {
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> --delim <input file delimiter> [ --debug --verbose ]
-Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors.txt --delim '###' --debug
+Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> --delim <input file delimiter> 
+         [ --max-size <maximum number of characters in quote> --debug --verbose ]
+Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors.txt --delim '###' --max-size 100 --debug
 _USAGE
 
     exit(1);

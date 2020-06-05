@@ -7,6 +7,7 @@
 #                                 --authors-file <authors text file>
 #                                 --delim <input file delimiter> 
 #                                 --max-size <maximum number of characters in quote>
+#                                 --print-sigs <sig separator>
 # Description: Filter quotes by applying the list in the authors file.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -53,7 +54,7 @@ our $DEBUG   = 0;
 our @QUOTE_FIELDS = ('quote', 'author', 'source', 'tags');
 our @AUTHOR_FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
 
-our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM, $MAX_SIZE);
+our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM, $MAX_SIZE, $PRINT_SIGS);
 
 use Getopt::Long;
 GetOptions(
@@ -61,6 +62,7 @@ GetOptions(
     'authors-file=s' => \$AUTHORS_FILE,
     'delim=s'        => \$DELIM,
     'max-size=i'     => \$MAX_SIZE,
+    'print-sigs=s'   => \$PRINT_SIGS,
     'debug'          => \$DEBUG,
     'verbose'        => \$VERBOSE,
     'help|usage'     => \&usage,
@@ -68,9 +70,6 @@ GetOptions(
 
 # Validate the command-line options
 #
-! $QUOTES_FILE  and &usage("Command-line option --quotes-file must be set");
-! -f $QUOTES_FILE and die("File '$QUOTES_FILE' not found or is not readable.");
-
 ! $AUTHORS_FILE and &usage("Command-line option --quotes-file must be set");
 ! -f $AUTHORS_FILE and die("File '$AUTHORS_FILE' not found or is not readable.");
 
@@ -108,9 +107,21 @@ while(<AUTHORS>) {
     $AUTHORS_REF->{$name_sig} = \%author;
 }
 
-
-# Process the Quotes file
+# Print list of author sigs? (can be used as tags)
 #
+if ($PRINT_SIGS) {
+    my @sigs = sort keys %$AUTHORS_REF;
+    print STDERR join($PRINT_SIGS, @sigs);
+
+    exit(0);
+}
+
+
+# Process the Quotes file, validating command-line option
+#
+! $QUOTES_FILE  and &usage("Command-line option --quotes-file must be set");
+! -f $QUOTES_FILE and die("File '$QUOTES_FILE' not found or is not readable.");
+
 open(QUOTES, $QUOTES_FILE) or die("Unable to open file '$QUOTES_FILE' for reading.");
 while(<QUOTES>) {
 
@@ -136,7 +147,7 @@ while(<QUOTES>) {
 
     # Check if this quote is associated with any of our authors
     #
-    foreach my $auth_name_sig (keys %$AUTHORS_REF) {
+    foreach my $auth_name_sig (sort keys %$AUTHORS_REF) {
         my $auth_ref = $AUTHORS_REF->{$auth_name_sig};
         my $auth_lname_sig = $auth_ref->{'lname_sig'};
 
@@ -176,14 +187,17 @@ sub createSigs {
     #
     $name = trim($name);
 
+    # Remove non-alpha, non-space characters
+    #
+    $name  =~ s/[^a-z ]//g;
+
     # Get the presumed last name (or single name)
     #
     my $lname = pop [ split(/ /, $name) ];
 
-    # Remove non-alpha characters
+    # Change space to dash
     #
-    $name  =~ s/[^a-z]//g;
-    $lname =~ s/[^a-z]//g;
+    $name =~ s/ /-/g;
 
     return ($name, $lname);
 }
@@ -195,8 +209,9 @@ sub createSigs {
 sub usage {
     print STDERR <<_USAGE;
 Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> --delim <input file delimiter> 
-         [ --max-size <maximum number of characters in quote> --debug --verbose ]
+         [ --max-size <maximum number of characters in quote> --print-sigs <sigs separator> --debug --verbose ]
 Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors.txt --delim '###' --max-size 100 --debug
+         ./$COMMAND --authors-file authors.txt --delim '###' --max-size 100 --print-sigs ','
 _USAGE
 
     exit(1);

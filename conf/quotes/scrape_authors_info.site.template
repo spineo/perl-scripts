@@ -1,0 +1,13 @@
+URL=https://en.wikipedia.org/wiki/<NAME>
+URL=https://siteurl/<NAME> (or https://siteurl/)
+URL_SUBSTITUTE=<url substitution pattern>
+DELIM=###    # Output file delimiter
+
+BIRTH_DAY_OPEN=<text or regex>
+BIRTH_DAY_TEXT=<text or regex>
+
+DEATH_DAY_OPEN=<text or regex>
+DEATH_DAY_TEXT=<text of regex>
+
+TITLE_OPEN=<text or regex>
+TITLE_TEXT=<text or regex>

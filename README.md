@@ -23,3 +23,6 @@ Example:
 export PATH=/home/svpineo/perl-scripts/bin:$PATH
 export PERL5LIB=/home/svpineo/perl-scripts/lib`
 ```
+## Quotations/Authors Information Scraping
+
+Included in the _bin/quotes_ directory are scripts used for scraping quotations and authors information. For more information review the script description and/or use the --usage command-line option.

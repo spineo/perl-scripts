@@ -1,12 +1,12 @@
 #!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
-# Name       : get_quotes.pl
+# Name       : scrape_quotes.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
 # Usage:     : $0 --config <absolute or relative path to config file> [ --debug --verbose ] > output_file
 # Description: Script parses data from a quotation block (which should include at the very least the quote and author). The required command-line option is the 
 #              site specific configuration file where the url, tag open/close patterns, and block end (i.e., end of a quotation section) can be specified. This
-#              file can be created by modifying the get_quotes.site.template file checked into the "conf" directory.
+#              file can be created by modifying the scrape_quotes.site.template file checked into the "conf" directory.
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ use warnings;
 # If needed, handle SSL gets:
 # export PERL_LWP_SSL_VERIFY_HOSTNAME=0
 #
-use lib qw(../lib);
+use lib qw(../../lib);
 
 use Getopt::Long;
 use Carp qw(croak carp);
@@ -50,7 +50,8 @@ use Cwd qw(cwd);
 
 # These found in ../lib
 #
-use Util::GenericUtils qw(trim trim_all is_path);
+use Util::GenericUtils qw(trim_all);
+use Util::Quotes qw(parseConfig cleanupTagsText);
 
 # Global variables
 #
@@ -146,29 +147,29 @@ sub outputContent {
     foreach my $line (@lines) {
         if ($qopen) {
             if ($line =~ m/([^$QUOTE_CLOSE]*)</) {
-                $qtext .= &cleanup($1);
+                $qtext .= &cleanupTagsText($1);
                 $qopen = 0;
     
             } else {
-                $qtext .= &cleanup($line);
+                $qtext .= &cleanupTagsText($line);
             }
 
         } elsif ($aopen) {
             if ($line =~ m/([^$AUTHOR_CLOSE]*)</) {
-                $atext .= &cleanup($1);
+                $atext .= &cleanupTagsText($1);
                 $aopen = 0;
 
             } else {
-                $atext .= &cleanup($line);
+                $atext .= &cleanupTagsText($line);
             }
 
         } elsif ($sopen) {
             if ($line =~ m/([^$SOURCE_CLOSE]*)</) {
-                $stext .= &cleanup($1);
+                $stext .= &cleanupTagsText($1);
                 $sopen = 0;
     
             } else {
-                $stext .= &cleanup($line);
+                $stext .= &cleanupTagsText($line);
             }
 
         } elsif ($topen) {
@@ -183,7 +184,7 @@ sub outputContent {
 
         } elsif ($line =~ m/$QUOTE_OPEN(.*)/) {
             $qopen = 1;
-            $qtext = &cleanup($1);
+            $qtext = &cleanupTagsText($1);
 	        $print = 0;
 
             if ($qtext =~ m/^([^$QUOTE_CLOSE]+)$QUOTE_CLOSE/) {
@@ -193,7 +194,7 @@ sub outputContent {
 
         } elsif ($line =~ m/$AUTHOR_OPEN(.*)/) {
             $aopen = 1;
-            $atext = &cleanup($1);
+            $atext = &cleanupTagsText($1);
 	        $print = 0;
 
             if ($atext =~ m/^([^$AUTHOR_CLOSE]+)$AUTHOR_CLOSE/) {
@@ -203,7 +204,7 @@ sub outputContent {
 
         } elsif ($line =~ m/$SOURCE_OPEN(.*)/) {
             $sopen = 1;
-            $stext = &cleanup($1);
+            $stext = &cleanupTagsText($1);
 	        $print = 0;
 
             if ($stext =~ m/^([^$SOURCE_CLOSE]+)$SOURCE_CLOSE/) {
@@ -217,7 +218,7 @@ sub outputContent {
 	        $print = 0;
 
             if ($ttext =~ m/$TAGS_CLOSE/) {
-                $ttext = &cleanup($`);
+                $ttext = &cleanupTagsText($`);
                 $topen = 0;
             }
 
@@ -231,44 +232,6 @@ sub outputContent {
 	        $print = 1;
         }
     }
-}
-
-#------------------------------------------------------------------------------
-# parseConfig: Parse the configuration file, return a nested reference structure
-#------------------------------------------------------------------------------
-
-sub parseConfig {
-    my $config = shift;
-
-    my $ref = {};
-
-    open(CONFIG, $config) or die("Unable to open file '$config' for reading: $!");
-    while(<CONFIG>) {
-
-        # Skip lines starting with comments
-        #
-        next if m/^#/;
-
-        # Skip empty lines
-        #
-        next if m/^\s*$/;
-
-        chomp;
-
-        # Remove potentially trailing comments
-        #
-        s/\s+#.*//;
-
-        m/^([^=]+)=(.*)/;
-        
-        my $key = $1;
-        my $val = $2;
-
-        ($key and $val) and $ref->{$key} = $val;
-    }
-    close CONFIG;
-
-    return $ref;
 }
 
 #------------------------------------------------------------------------------
@@ -296,20 +259,6 @@ sub processURL {
 }
 
 #------------------------------------------------------------------------------
-# cleanup: Cleanup quotes text
-#------------------------------------------------------------------------------
-
-sub cleanup {
-    my $text = shift;
-
-    $text =~ s/\n/ /g;
-    $text =~ s/\&[a-z]+\;//g;
-    $text =~ s/,$//;
-
-    return trim($text);
-}
-
-#------------------------------------------------------------------------------
 # urlCleanup: Remove URL references
 #------------------------------------------------------------------------------
 
@@ -333,7 +282,7 @@ sub usage {
 
     print STDERR <<_USAGE;
 Usage:   ./$COMMAND --config <absolute or relative path to config file> [ --debug --verbose ] > output_file
-Example: ./$COMMAND --config ../conf/get_quotes.somequotesite --debug --verbose > quotes.txt
+Example: ./$COMMAND --config ../../conf/quotes/scrape_quotes.somequotesite --debug --verbose > quotes.txt
 _USAGE
 
     exit(1);

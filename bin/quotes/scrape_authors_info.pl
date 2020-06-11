@@ -43,7 +43,6 @@ use lib qw(../../lib);
 use Getopt::Long;
 use Carp qw(croak carp);
 use Data::Dumper;
-use Date::Parse;
 
 #use LWP::Simple;
 use LWP::UserAgent;
@@ -52,7 +51,7 @@ use Cwd qw(cwd);
 # These found in ../lib
 #
 use Util::Quotes qw(parseConfig cleanupTagsText);
-use Util::GenericUtils qw(datestamp);
+use Util::GenericUtils qw(date2comps);
 
 # Global variables
 #
@@ -146,20 +145,28 @@ sub outputContent {
     my $bdaytext  = '';
     my $ddaytext  = '';
     my $titletext = '';
+    my @date_comps = ();
     foreach my $line (@lines) {
         if ($line =~ m/$BIRTH_DAY_OPEN($BIRTH_DAY_TEXT)/) {
-            $bdaytext = &cleanupTagsText($1);
+            @date_comps = &date2comps(&cleanupTagsText($1));
+            $bdaytext = join('-', @date_comps);
         }
 
         if ($line =~ m/$DEATH_DAY_OPEN($DEATH_DAY_TEXT)/) {
-            $ddaytext = &datestamp(str2time(&cleanupTagsText($1)), 'YYYY-MM-DD');
+            @date_comps = &date2comps(&cleanupTagsText($1));
+            $ddaytext = join('-', @date_comps);
         }
 
         if ($line =~ m/$TITLE_OPEN($TITLE_TEXT)/) {
             $titletext = &cleanupTagsText($1);
         }
     }
-	print STDOUT qq|$author$DELIM$bdaytext$DELIM$ddaytext$DELIM$titletext$DELIM$url\n|;
+
+    if ($bdaytext or $ddaytext or $titletext) {
+	    print STDOUT qq|$author$DELIM$bdaytext$DELIM$ddaytext$DELIM$titletext$DELIM$url\n|;
+    } else {
+	    print STDERR qq|NOT FOUND:$author$DELIM$bdaytext$DELIM$ddaytext$DELIM$titletext$DELIM$url\n|;
+    }
 }
 
 #------------------------------------------------------------------------------

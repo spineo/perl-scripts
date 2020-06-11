@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(trim trim_all trim_ctrl has_carriage_return datestamp get_env is_file is_path send_mail exec_script safe_copy logger deep_copy compute_md5);
+@EXPORT_OK = qw(trim trim_all trim_ctrl has_carriage_return datestamp date2comps get_env is_file is_path send_mail exec_script safe_copy logger deep_copy compute_md5);
 
 
 
@@ -130,7 +130,7 @@ sub datestamp {
     } else {
         @datetime = localtime ();    # If time omitted, returns current time
     }
-        
+
     my $year = 1900 + $datetime[5];
     my $month = 1 + $datetime[4];   # Convert to 1-12 range
     $month =~ s/^\d$/0$&/;          # ...and '0' pad single digits
@@ -164,6 +164,64 @@ sub datestamp {
     return $formatted_date;
 }
 
+#------------------------------------------------------------------------------
+# date2format
+#
+# Parse the year, month, and day components of a date.
+#------------------------------------------------------------------------------
+
+sub date2comps {
+    my $date_str = shift;
+
+    my %month_num = ( 'january',   '01',
+                      'february',  '02',
+                      'march',     '03',
+                      'april',     '04',
+                      'may',       '05',
+                      'june',      '06',
+                      'july',      '07',
+                      'august',    '08',
+                      'september', '09',
+                      'october',   '10',
+                      'november',  '11',
+                      'december',  '12');
+
+    $date_str =~ s/[^0-9a-zA-Z]/ /g;
+    $date_str = lc(trim($date_str));
+
+    my @comps = split(/ /, $date_str);
+    my $year  = '';
+    my $month = '';
+    my $day   = '';
+    my $ct = 0;
+    foreach my $comp (@comps) {
+        if ($comp =~ m/^\d{3,4}$/) {
+            $year = $comp;
+            $ct++;
+
+        } elsif ($comp =~ m/^[a-z]+$/) {
+            $month = $month_num{$comp};
+            $ct++;
+
+        } elsif ($comp =~ m/^\d{1,2}$/) {
+            if ($ct == 1 and ! $month) {
+                $month = $comp;
+                $month =~ s/^\d$/0$&/;
+            } else {
+                $day = $comp;
+                $day =~ s/^\d$/0$&/;
+            }
+            $ct++;
+        }
+    }
+
+    my @ret_comps = ();
+    $year  and  push @ret_comps, $year;
+    $month and push @ret_comps, $month;
+    $day   and push @ret_comps, $day;
+
+    return @ret_comps;
+}
 
 # ********************************************************************************
 #

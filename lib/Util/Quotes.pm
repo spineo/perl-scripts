@@ -39,7 +39,9 @@ $VERSION = 0.01;
 
 
 #------------------------------------------------------------------------------
-# parseConfig: Parse the configuration file, return a nested reference structure
+# parseConfig
+#
+# Parse the configuration file, return a nested reference structure
 #------------------------------------------------------------------------------
 
 sub parseConfig {
@@ -77,7 +79,9 @@ sub parseConfig {
 }
 
 #------------------------------------------------------------------------------
-# cleanup: Cleanup tags text
+# cleanup
+#
+# Cleanup tags text
 #------------------------------------------------------------------------------
 
 sub cleanupTagsText {

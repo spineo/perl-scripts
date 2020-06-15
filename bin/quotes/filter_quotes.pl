@@ -5,6 +5,7 @@
 # Author     : Stuart Pineo  <svpineo@gmail.com>
 # Usage      : ./filter_quotes.pl --quotes-file <quotes text file>
 #                                 --authors-file <authors text file>
+#                                 --events-file <events text file>
 #                                 --delim <input file delimiter> 
 #                                 --max-size <maximum number of characters in quote>
 #                                 --print-sigs <sig separator>
@@ -36,7 +37,7 @@ use Data::Dumper;
 
 # These found in ../lib
 #
-use lib qw(../lib);
+use lib qw(../../lib);
 use Util::GenericUtils qw(trim trim_all);
 
 # Global variables
@@ -51,15 +52,17 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our @QUOTE_FIELDS = ('quote', 'author', 'source', 'tags');
-our @AUTHOR_FIELDS = ('name', 'origin', 'title', 'birth_date', 'death_date', 'bio_url');
+our @QUOTE_FIELDS  = ('quote', 'author', 'source', 'tags');
+our @AUTHOR_FIELDS = ('name', 'birth_date', 'death_date', 'description', 'bio_url');
+our @EVENT_FIELDS  = ('author', 'event_date', 'event', 'tags');
 
-our ($QUOTES_FILE, $AUTHORS_FILE, $DELIM, $MAX_SIZE, $PRINT_SIGS);
+our ($QUOTES_FILE, $AUTHORS_FILE, $EVENTS_FILE, $DELIM, $MAX_SIZE, $PRINT_SIGS);
 
 use Getopt::Long;
 GetOptions(
     'quotes-file=s'  => \$QUOTES_FILE,
     'authors-file=s' => \$AUTHORS_FILE,
+    'events-file=s'  => \$EVENTS_FILE,
     'delim=s'        => \$DELIM,
     'max-size=i'     => \$MAX_SIZE,
     'print-sigs=s'   => \$PRINT_SIGS,
@@ -70,13 +73,16 @@ GetOptions(
 
 # Validate the command-line options
 #
-! $AUTHORS_FILE and &usage("Command-line option --quotes-file must be set");
+! $AUTHORS_FILE and &usage("Command-line option --authors-file must be set");
 ! -f $AUTHORS_FILE and die("File '$AUTHORS_FILE' not found or is not readable.");
+
+! $EVENTS_FILE and &usage("Command-line option --events-file must be set");
+! -f $EVENTS_FILE and die("File '$EVENTS_FILE' not found or is not readable.");
 
 ! $DELIM       and &usage("Command-line option --delim must be set");
 
 
-# Create the authors ref keyed on name signature
+# Create the authors ref keyed on author name signature
 #
 our $AUTHORS_REF = {};
 open(AUTHORS, $AUTHORS_FILE) or die("Unable to open file '$AUTHORS_FILE' for reading.");
@@ -114,6 +120,39 @@ if ($PRINT_SIGS) {
     print STDERR join($PRINT_SIGS, @sigs);
 
     exit(0);
+}
+
+
+# Create the events ref keyed on name signature
+#
+our $EVENTS_REF = {};
+open(EVENTS, $EVENTS_FILE) or die("Unable to open file '$EVENTS_FILE' for reading.");
+while(<EVENTS>) {
+    # Skip comments
+    #
+    next if m/^#/;
+
+    # Skip empty lines
+    #
+    next if m/^\s*$/;
+
+    chomp;
+
+    my @comps = split(/$DELIM/, $_);
+    if (@comps != @EVENT_FIELDS) {
+        die("Data error found in line: $_\n");
+    }
+
+    my %event = ();
+    @event{@EVENT_FIELDS} = @comps;
+
+    my $event_author = $event{'author'};
+    delete($event{'author'});
+
+
+    my ($name_sig, $lname_sig) = &createSigs($event_author);
+
+    push(@{$AUTHORS_REF->{$name_sig}->{'events'}}, \%event);
 }
 
 
@@ -208,9 +247,10 @@ sub createSigs {
 
 sub usage {
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> --delim <input file delimiter> 
+Usage:   ./$COMMAND --quotes-file <quotes text file> --authors-file <authors text file> 
+         --events-file <events text file> --delim <input file delimiter> 
          [ --max-size <maximum number of characters in quote> --print-sigs <sigs separator> --debug --verbose ]
-Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors.txt --delim '###' --max-size 100 --debug
+Example: ./$COMMAND --quotes-file quotes.txt --authors-file authors_info_all.txt --events-file events.txt --delim '###' --max-size 100 --debug
          ./$COMMAND --authors-file authors.txt --delim '###' --max-size 100 --print-sigs ','
 _USAGE
 

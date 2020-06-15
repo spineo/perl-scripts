@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 #------------------------------------------------------------------------------
-# Name       : scrape_author_info.pl
+# Name       : scrape_authors_info.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
 # Usage:     : $0 --config <absolute or relative path to config file> --authors-file <file with list of authors (one per line)> 
 #              [ --debug --verbose ] > output_file

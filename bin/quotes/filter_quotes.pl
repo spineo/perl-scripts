@@ -194,7 +194,7 @@ while(<QUOTES>) {
 
         # Compare on full name signature or last name signature (additional filter may be needed)
         #
-        if (($name_sig eq $auth_name_sig or $lname_sig eq $auth_lname_sig) and (($MAX_SIZE and $quote_len <= $MAX_SIZE) or ! $MAX_SIZE)) {
+        if ($name_sig eq $auth_name_sig and (($MAX_SIZE and $quote_len <= $MAX_SIZE) or ! $MAX_SIZE)) {
            push(@{$auth_ref->{'quotes'}}, \%quote);
         }
     }

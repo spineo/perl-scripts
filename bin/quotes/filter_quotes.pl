@@ -35,6 +35,13 @@ use Getopt::Long;
 use Carp qw(croak carp);
 use Data::Dumper;
 
+
+# To use this module may need to first install with the cpan installer
+# Then add i.e. "export PERL5LIB=/Users/stuartpineo/perl5/lib/perl5/" to the ~/.bashrc
+# Also make sure, if needed, to run "source ~/.bashrc" before executing the script
+#
+use JSON qw(to_json);;
+
 # These found in ../lib
 #
 use lib qw(../../lib);
@@ -52,9 +59,9 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our @QUOTE_FIELDS  = ('quote', 'author', 'source', 'tags');
+our @QUOTE_FIELDS  = ('quote', 'author', 'source', 'keywords');
 our @AUTHOR_FIELDS = ('name', 'birth_date', 'death_date', 'description', 'bio_url');
-our @EVENT_FIELDS  = ('author', 'event_date', 'event', 'tags');
+our @EVENT_FIELDS  = ('author', 'event_date', 'event', 'keywords');
 
 our ($QUOTES_FILE, $AUTHORS_FILE, $EVENTS_FILE, $DELIM, $MAX_SIZE, $PRINT_SIGS);
 
@@ -201,6 +208,10 @@ while(<QUOTES>) {
 }
 
 $DEBUG and print STDERR Data::Dumper->Dump( [ $AUTHORS_REF ] );
+
+# Out as JSON so it can be used by the loader script
+#
+print STDOUT to_json( $AUTHORS_REF );
 
 
 #------------------------------------------------------------------------------

@@ -14,7 +14,7 @@ our $SCRIPT  = shift @ARGV;
 
 our $AUTHOR  = qq|Stuart Pineo|;
 our $EMAIL   = qq|svpineo\@gmail.com|;
-our $YEAR    = qq|2017|;
+our $YEAR    = qq|2020|;
 our $VERSION = qq|1.0|;
 
 our $HEADER =<<_END;

@@ -53,7 +53,7 @@ our $VERBOSE = 0;
 our $DEBUG   = 0;
 
 our $DB_FILE;
-our $TAGS;
+our $KEYWORDS;
 
 use Getopt::Long;
 GetOptions(
@@ -73,29 +73,27 @@ my $authors_ref = from_json( <STDIN> );
 $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 
 #------------------------------------------------------------------------------
-# Connect to the database
+# Connect to the database and prepare the inserts
 #------------------------------------------------------------------------------
 
 my $dbh = DBI->connect("dbi:SQLite:dbname=$DB_FILE","","");
 
+my $sth_keyword = $dbh->prepare("INSERT INTO myquotes_keyword(keyword) VALUES (?)");
 
+#------------------------------------------------------------------------------
 # Load the keywords
-#
-$TAGS = {};
-&extractTags($authors_ref, $TAGS);
-foreach my $key (sort keys %$TAGS) {
-    print STDOUT "$key\n";
-}
-
-
-#------------------------------------------------------------------------------
-# extractTags
-#
-# Extract tags (to be used for 'keyword' table)
 #------------------------------------------------------------------------------
 
-sub extractTags {
-    my ($authors_ref, $TAGS) = @_;
+$KEYWORDS = {};
+&extractKeywords($authors_ref);
+&loadKeywords($KEYWORDS);
+
+#------------------------------------------------------------------------------
+# extractKeywords: Extract keywords (to be used for 'myquotes_keyword' table)
+#------------------------------------------------------------------------------
+
+sub extractKeywords {
+    my $authors_ref = shift;
 
     foreach my $auth_sig (keys %$authors_ref) {
         my $author_ref = $authors_ref->{$auth_sig};
@@ -103,11 +101,27 @@ sub extractTags {
         my $quotes_array = $author_ref->{'quotes'};
         foreach my $quote_ref (@$quotes_array) {
 
-            my @tags = split(/,/, $quote_ref->{'tags'});
-            foreach my $tag (@tags) {
-                $TAGS->{$tag} = 1;
+            my @keywords = split(/,/, $quote_ref->{'keywords'});
+            foreach my $keyword (@keywords) {
+                $KEYWORDS->{$keyword} = 1;
             }
         }
+    }
+}
+
+#------------------------------------------------------------------------------
+# loadKeywords: Load the keywords, storing the returned primary key has hash value.
+#------------------------------------------------------------------------------
+
+sub loadKeywords {
+
+    foreach my $keyword (sort keys %$KEYWORDS) {
+        $DEBUG and print STDOUT "Loding keyword: $keyword\n";
+
+        $sth_keyword->bind_param(1, $keyword);
+        $sth_keyword->execute();
+
+        #$KEYWORDS->{$keyword} = $sth_keyword->{mysql_insertid}
     }
 }
 

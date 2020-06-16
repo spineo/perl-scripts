@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(parseConfig cleanupTagsText validateKeywords);
+@EXPORT_OK = qw(parseConfig cleanupTagsText createSigs inASCIISet validateKeywords);
 
 
 #------------------------------------------------------------------------------
@@ -95,6 +95,63 @@ sub cleanupTagsText {
     $text =~ s/\s+/ /g;
 
     return $text;
+}
+
+#------------------------------------------------------------------------------
+# createSigs
+
+# Construct the author signatures by removing all empty spaces, lowercasing, 
+# removing common pre/suffixes, and removing non-alpha characters. A separate 
+# signature on last name will also be returned.
+#------------------------------------------------------------------------------
+
+sub createSigs {
+
+    my $name = shift;
+
+    # Lower case
+    #
+    $name = lc($name);
+
+    # Remove prefix/suffix
+    #
+    $name =~ s/\W(jr|sr)\.//;
+    $name =~ s/^sir\W//;
+
+    # Remove any extra spaces
+    #
+    $name =~ s/^\s+//;
+    $name =~ s/\s+$//;
+    $name =~ s/\s+/ /g;
+
+    # Remove non-alpha, non-space characters
+    #
+    $name  =~ s/[^a-z ]//g;
+
+    # Get the presumed last name (or single name)
+    #
+    my $lname = pop [ split(/ /, $name) ];
+
+    # Change space to dash
+    #
+    $name =~ s/ /-/g;
+
+    return ($name, $lname);
+}
+
+#------------------------------------------------------------------------------
+# inASCIISet
+#
+# Ignore quote if it does not include the valid set of ASCII charaters
+# expressed in the octal range \040-\176
+#------------------------------------------------------------------------------
+
+sub inASCIISet {
+    my $text = shift;
+
+    return 0 if ($text =~ m/[^\040-\176]/);
+
+    return 1; 
 }
 
 #------------------------------------------------------------------------------

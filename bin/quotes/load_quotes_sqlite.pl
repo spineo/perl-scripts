@@ -39,6 +39,9 @@ use Data::Dumper;
 use JSON qw(from_json);;
 use DBI;
 
+use lib qw(../../lib);
+use Util::Quotes qw(createSigs);
+
 
 # Global variables
 #
@@ -47,21 +50,12 @@ chomp($COMMAND);
 
 our $VERSION = "1.0";
 
-
-# Tables
-#
-our $KEYWORD = qq|myquotes_keyword|;
-
 # Generic variables
 #
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
 our $DB_FILE;
-
-our $SEL_KEYWORDS = {};
-our $INS_KEYWORDS = {};
-
 
 use Getopt::Long;
 GetOptions(
@@ -84,18 +78,45 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 # Connect to the database and prepare the inserts
 #------------------------------------------------------------------------------
 
+# Tables
+#
+our $KEYWORD = qq|myquotes_keyword|;
+our $AUTHOR  = qq|myquotes_author|;
+
 my $dbh = DBI->connect("dbi:SQLite:dbname=$DB_FILE","","");
 
 my $sth_keyword_sel = $dbh->prepare("SELECT id, keyword from $KEYWORD");
 my $sth_keyword_ins = $dbh->prepare("INSERT INTO $KEYWORD(keyword) VALUES (?)");
 
+my $sth_author_sel  = $dbh->prepare("SELECT id, full_name, birth_date, death_date, bio_extract, bio_source_url from $AUTHOR");
+my $sth_author_ins  = $dbh->prepare("INSERT INTO $AUTHOR(full_name, birth_date, death_date, bio_extract, bio_source_url) VALUES (?, ?, ?, ?, ?)");
+
 #------------------------------------------------------------------------------
 # Load the keywords
 #------------------------------------------------------------------------------
 
+our $SEL_KEYWORDS = {};
+our $INS_KEYWORDS = {};
+
 &extractKeywords($authors_ref);
 &queryKeywords();
 &insertKeywords();
+
+
+#------------------------------------------------------------------------------
+# Load the authors
+#------------------------------------------------------------------------------
+
+our $SEL_AUTHORS = {};
+our $INS_AUTHORS = {};
+
+&queryAuthors();
+&insertAuthors($authors_ref);
+
+
+#------------------------------------------------------------------------------
+# Cleanup
+#------------------------------------------------------------------------------
 
 $dbh->disconnect;
 
@@ -139,7 +160,7 @@ sub queryKeywords {
 }
 
 #------------------------------------------------------------------------------
-# insertKeywords: Load the keywords, storing the returned primary key has hash value.
+# insertKeywords: Load the keywords, storing the returned primary key as hash value.
 #------------------------------------------------------------------------------
 
 sub insertKeywords {
@@ -159,6 +180,58 @@ sub insertKeywords {
         $INS_KEYWORDS->{$keyword} = $id;
     }
     $sth_keyword_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# queryAuthors: Query from authors table to avoid inserting duplicates
+#------------------------------------------------------------------------------
+
+sub queryAuthors {
+
+    my $stat = $sth_author_sel->execute() or die("Execute Failed: " . $sth_author_sel->errstr);
+
+    while (my $row = $sth_author_sel->fetchrow_hashref()) {
+        my $id = $row->{'id'};
+        my $name_sig = ( &createSigs($row->{'full_name'}) )[0];
+        $SEL_AUTHORS->{$name_sig} = $id;
+    }
+    $sth_author_sel->finish();
+
+    $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_AUTHORS ] );
+}
+
+#------------------------------------------------------------------------------
+# insertAuthors: Load the authors, storing the returned primary key as hash value.
+#------------------------------------------------------------------------------
+
+sub insertAuthors {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        next if defined($SEL_AUTHORS->{$name_sig});
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $name        = $author_ref->{'name'};
+        my $birth_date  = defined($author_ref->{'birth_date'})  ? $author_ref->{'birth_date'}  : "";
+        my $death_date  = defined($author_ref->{'death_date'})  ? $author_ref->{'death_date'}  : "";
+        my $description = defined($author_ref->{'description'}) ? $author_ref->{'description'} : "";
+        my $bio_url     = defined($author_ref->{'bio_url'})     ? $author_ref->{'bio_url'}     : "";
+
+        $DEBUG and print STDOUT "Loading author: $name\n";
+
+        $sth_author_ins->bind_param(1, $name);
+        $sth_author_ins->bind_param(2, $birth_date);
+        $sth_author_ins->bind_param(3, $death_date);
+        $sth_author_ins->bind_param(4, $description);
+        $sth_author_ins->bind_param(5, $bio_url);
+
+        $sth_author_ins->execute() or die("Execute Failed: " . $sth_author_ins->errstr);
+
+        my $id = $dbh->sqlite_last_insert_rowid;
+        $author_ref->{'id'} = $id;
+    }
+    $sth_author_ins->finish();
 }
 
 #------------------------------------------------------------------------------

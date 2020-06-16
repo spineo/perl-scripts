@@ -45,7 +45,7 @@ use JSON qw(to_json);;
 # These found in ../lib
 #
 use lib qw(../../lib);
-use Util::Quotes qw(validateKeywords);
+use Util::Quotes qw(createSigs inASCIISet validateKeywords);
 use Util::GenericUtils qw(trim trim_all);
 
 # Global variables
@@ -190,6 +190,39 @@ while(<QUOTES>) {
     my %quote = ();
     @quote{@QUOTE_FIELDS} = @comps;
 
+    # Validate the quote before continuing
+    #
+    # Is character set valid?
+    #
+    next if not &inASCIISet($quote{'quote'});
+
+    # Is length within specified requirements?
+    #
+    my $quote_len = length($quote{'quote'});
+    next if ($MAX_SIZE and ($quote_len > $MAX_SIZE));
+
+    # Remove keywords that do not include the valid character set
+    #
+    my $keywords = $quote{'keywords'};
+    if (defined($keywords)) {
+        my @keywords = &validateKeywords($keywords);
+
+        if (@keywords) {
+            $quote{'keywords'} = join(',', @keywords);
+
+        } else {
+            delete($quote{'keywords'});
+        }
+    }
+
+    # Validate the source
+    #
+    my $source = $quote{'source'};
+    if (! ($quote{'source'} and &inASCIISet($source))) {
+        delete($quote{'source'});
+    }
+
+
     my ($name_sig, $lname_sig) = &createSigs($quote{'author'});
 
     # Check if this quote is associated with any of our authors
@@ -198,23 +231,9 @@ while(<QUOTES>) {
         my $auth_ref = $AUTHORS_REF->{$auth_name_sig};
         my $auth_lname_sig = $auth_ref->{'lname_sig'};
 
-        my $quote_len = length($quote{'quote'});
-
-        my $keywords = $quote{'keywords'};
-        if (defined($keywords)) {
-            my @keywords = &validateKeywords($keywords);
-
-            if (@keywords) {
-                $quote{'keywords'} = join(',', @keywords);
-
-            } else {
-                delete($quote{'keywords'});
-            }
-        }
-
         # Compare on full name signature or last name signature (additional filter may be needed)
         #
-        if ($name_sig eq $auth_name_sig and (($MAX_SIZE and $quote_len <= $MAX_SIZE) or ! $MAX_SIZE)) {
+        if ($name_sig eq $auth_name_sig) {
            push(@{$auth_ref->{'quotes'}}, \%quote);
         }
     }
@@ -226,44 +245,6 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $AUTHORS_REF ] );
 #
 print STDOUT to_json( $AUTHORS_REF );
 
-
-#------------------------------------------------------------------------------
-# createSigs: Construct the author signatures by removing all empty spaces, 
-# lowercasing, removing common pre/suffixes, and removing non-alpha characters
-# A separate signature on last name will also be returned.
-#------------------------------------------------------------------------------
-
-sub createSigs {
-    
-    my $name = shift;
-
-    # Lower case
-    #
-    $name = lc($name);
-
-    # Remove prefix/suffix
-    #
-    $name =~ s/\W(jr|sr)\.//;
-    $name =~ s/^sir\W//;
-
-    # Remove any extra/trailing spaces
-    #
-    $name = trim($name);
-
-    # Remove non-alpha, non-space characters
-    #
-    $name  =~ s/[^a-z ]//g;
-
-    # Get the presumed last name (or single name)
-    #
-    my $lname = pop [ split(/ /, $name) ];
-
-    # Change space to dash
-    #
-    $name =~ s/ /-/g;
-
-    return ($name, $lname);
-}
 
 #------------------------------------------------------------------------------
 # usage: Print usage when invoked with -help or -usage

@@ -47,13 +47,21 @@ chomp($COMMAND);
 
 our $VERSION = "1.0";
 
+
+# Tables
+#
+our $KEYWORD = qq|myquotes_keyword|;
+
 # Generic variables
 #
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
 our $DB_FILE;
-our $KEYWORDS;
+
+our $SEL_KEYWORDS = {};
+our $INS_KEYWORDS = {};
+
 
 use Getopt::Long;
 GetOptions(
@@ -78,15 +86,18 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 
 my $dbh = DBI->connect("dbi:SQLite:dbname=$DB_FILE","","");
 
-my $sth_keyword = $dbh->prepare("INSERT INTO myquotes_keyword(keyword) VALUES (?)");
+my $sth_keyword_sel = $dbh->prepare("SELECT id, keyword from $KEYWORD");
+my $sth_keyword_ins = $dbh->prepare("INSERT INTO $KEYWORD(keyword) VALUES (?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
 #------------------------------------------------------------------------------
 
-$KEYWORDS = {};
 &extractKeywords($authors_ref);
-&loadKeywords($KEYWORDS);
+&queryKeywords();
+&insertKeywords();
+
+$dbh->disconnect;
 
 #------------------------------------------------------------------------------
 # extractKeywords: Extract keywords (to be used for 'myquotes_keyword' table)
@@ -103,26 +114,51 @@ sub extractKeywords {
 
             my @keywords = split(/,/, $quote_ref->{'keywords'});
             foreach my $keyword (@keywords) {
-                $KEYWORDS->{$keyword} = 1;
+                $INS_KEYWORDS->{$keyword} = 1;
             }
         }
     }
 }
 
 #------------------------------------------------------------------------------
-# loadKeywords: Load the keywords, storing the returned primary key has hash value.
+# queryKeywords: Query from keywords table to avoid inserting duplicates
 #------------------------------------------------------------------------------
 
-sub loadKeywords {
+sub queryKeywords {
 
-    foreach my $keyword (sort keys %$KEYWORDS) {
-        $DEBUG and print STDOUT "Loding keyword: $keyword\n";
+    my $stat = $sth_keyword_sel->execute() or die("Execute Failed: " . $sth_keyword_sel->errstr);
 
-        $sth_keyword->bind_param(1, $keyword);
-        $sth_keyword->execute();
-
-        #$KEYWORDS->{$keyword} = $sth_keyword->{mysql_insertid}
+    while (my $row = $sth_keyword_sel->fetchrow_hashref()) {
+        my $id = $row->{'id'};
+        my $keyword = $row->{'keyword'};
+        $SEL_KEYWORDS->{$keyword} = $id;
     }
+    $sth_keyword_sel->finish();
+
+    $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_KEYWORDS ] );
+}
+
+#------------------------------------------------------------------------------
+# insertKeywords: Load the keywords, storing the returned primary key has hash value.
+#------------------------------------------------------------------------------
+
+sub insertKeywords {
+
+    $DEBUG and print STDERR Data::Dumper->Dump( [ $INS_KEYWORDS ] );
+
+    foreach my $keyword (sort keys %$INS_KEYWORDS) {
+
+        next if defined($SEL_KEYWORDS->{$keyword});
+
+        $DEBUG and print STDOUT "Loading keyword: $keyword\n";
+
+        $sth_keyword_ins->bind_param(1, $keyword);
+        $sth_keyword_ins->execute() or die("Execute Failed: " . $sth_keyword_ins->errstr);
+
+        my $id = $dbh->sqlite_last_insert_rowid;
+        $INS_KEYWORDS->{$keyword} = $id;
+    }
+    $sth_keyword_ins->finish();
 }
 
 #------------------------------------------------------------------------------

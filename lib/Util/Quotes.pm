@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(parseConfig cleanupTagsText);
+@EXPORT_OK = qw(parseConfig cleanupTagsText validateKeywords);
 
 
 #------------------------------------------------------------------------------
@@ -79,7 +79,7 @@ sub parseConfig {
 }
 
 #------------------------------------------------------------------------------
-# cleanup
+# cleanupTagsText
 #
 # Cleanup tags text
 #------------------------------------------------------------------------------
@@ -95,6 +95,39 @@ sub cleanupTagsText {
     $text =~ s/\s+/ /g;
 
     return $text;
+}
+
+#------------------------------------------------------------------------------
+# validateKeywords
+#
+# Validate a list of comma-separated keywords
+#------------------------------------------------------------------------------
+
+sub validateKeywords {
+    my $keywords = shift;
+
+    my @keywords = split(/\s*,\s*/, $keywords);
+
+    my @accepted = ();
+    foreach my $keyword (@keywords) {
+        &_isKeywordValid($keyword) and push @accepted, $keyword;
+    }
+
+    return @accepted;
+}
+
+#------------------------------------------------------------------------------
+# _isKeywordValid
+#
+# Ignore keyword if it does not include only lowercase letters, numbers, and dashes
+#------------------------------------------------------------------------------
+
+sub _isKeywordValid {
+    my $text = shift;
+
+    return 0 if ($text =~ m/[^a-z0-9\-]/);
+
+    return 1; 
 }
 
 1;

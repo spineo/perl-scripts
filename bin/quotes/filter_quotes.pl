@@ -45,6 +45,7 @@ use JSON qw(to_json);;
 # These found in ../lib
 #
 use lib qw(../../lib);
+use Util::Quotes qw(validateKeywords);
 use Util::GenericUtils qw(trim trim_all);
 
 # Global variables
@@ -198,6 +199,18 @@ while(<QUOTES>) {
         my $auth_lname_sig = $auth_ref->{'lname_sig'};
 
         my $quote_len = length($quote{'quote'});
+
+        my $keywords = $quote{'keywords'};
+        if (defined($keywords)) {
+            my @keywords = &validateKeywords($keywords);
+
+            if (@keywords) {
+                $quote{'keywords'} = join(',', @keywords);
+
+            } else {
+                delete($quote{'keywords'});
+            }
+        }
 
         # Compare on full name signature or last name signature (additional filter may be needed)
         #

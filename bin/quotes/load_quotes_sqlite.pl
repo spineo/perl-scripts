@@ -3,7 +3,7 @@
 #------------------------------------------------------------------------------
 # Name       : load_quotes_sqlite.pl
 # Author     : Stuart Pineo  <svpineo@gmail.com>
-# Usage      : ./load_quotes_sqlite.pl --db-file <database file> [ --debug 
+# Usage      : ./load_quotes_sqlite.pl --db-conf <database config file> [ --debug 
 #              --verbose ] < <author JSON>
 # Description: The quotes loader loads into the SQLite quotes database the Author, Events,
 #              Keywords, and Quotes data parsed from the filter script output (as STDIN)
@@ -43,6 +43,14 @@ use lib qw(../../lib);
 use Util::Quotes qw(createSigs);
 
 
+# Database wrapper, uses the database configuration file supplied as command-line option
+# For SQLite, either the 'conn_str' property can be supplied directly or include
+# the 'server' (i.e., sqlite) and 'filename' (i.e., /somepath/myquotes.sqlite3)
+# properties. If authentication required, also 'username' and 'password' must be added. 
+#
+use Util::DB;
+
+
 # Global variables
 #
 our $COMMAND = `basename $0`;
@@ -55,11 +63,11 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our $DB_FILE;
+our $DB_CONF;
 
 use Getopt::Long;
 GetOptions(
-    'db-file=s'  => \$DB_FILE,
+    'db-conf=s'  => \$DB_CONF,
     'debug'      => \$DEBUG,
     'verbose'    => \$VERBOSE,
     'help|usage' => \&usage,
@@ -67,8 +75,8 @@ GetOptions(
 
 # Validate the command-line options
 #
-! $DB_FILE and &usage("Command-line option --db-file must be set");
-! -f $DB_FILE and die("File '$DB_FILE' not found or is not readable.");
+! $DB_CONF and &usage("Command-line option --db-conf must be set");
+! -f $DB_CONF and die("File '$DB_CONF' not found or is not readable.");
 
 my $authors_ref = from_json( <STDIN> );
 
@@ -78,18 +86,24 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 # Connect to the database and prepare the inserts
 #------------------------------------------------------------------------------
 
-# Tables
+# Tables/columns
 #
-our $KEYWORD = qq|myquotes_keyword|;
-our $AUTHOR  = qq|myquotes_author|;
+our $KEYWORD_TBL  = qq|myquotes_keyword|;
+our @KEYWORD_COLS = ('keyword');
 
-my $dbh = DBI->connect("dbi:SQLite:dbname=$DB_FILE","","");
+our $AUTHOR_TBL   = qq|myquotes_author|;
+our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'bio_extract', 'bio_source_url');
 
-my $sth_keyword_sel = $dbh->prepare("SELECT id, keyword from $KEYWORD");
-my $sth_keyword_ins = $dbh->prepare("INSERT INTO $KEYWORD(keyword) VALUES (?)");
+# AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
+my $dbObj = new Util::DB();
+$dbObj->initialize($DB_CONF);
+#$dbObj->setAttr('AutoCommit', 1);
 
-my $sth_author_sel  = $dbh->prepare("SELECT id, full_name, birth_date, death_date, bio_extract, bio_source_url from $AUTHOR");
-my $sth_author_ins  = $dbh->prepare("INSERT INTO $AUTHOR(full_name, birth_date, death_date, bio_extract, bio_source_url) VALUES (?, ?, ?, ?, ?)");
+my $sql_keyword_sel = qq|SELECT * from $KEYWORD_TBL|;
+my $sth_keyword_ins = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
+
+my $sql_author_sel  = qq|SELECT * from $AUTHOR_TBL|;
+my $sth_author_ins  = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -118,7 +132,8 @@ our $INS_AUTHORS = {};
 # Cleanup
 #------------------------------------------------------------------------------
 
-$dbh->disconnect;
+$dbObj->commit;
+$dbObj->disconnect;
 
 #------------------------------------------------------------------------------
 # extractKeywords: Extract keywords (to be used for 'myquotes_keyword' table)
@@ -147,14 +162,13 @@ sub extractKeywords {
 
 sub queryKeywords {
 
-    my $stat = $sth_keyword_sel->execute() or die("Execute Failed: " . $sth_keyword_sel->errstr);
+    my $values = $dbObj->select_hash($sql_keyword_sel);
 
-    while (my $row = $sth_keyword_sel->fetchrow_hashref()) {
+    foreach my $row (@$values) {
         my $id = $row->{'id'};
         my $keyword = $row->{'keyword'};
         $SEL_KEYWORDS->{$keyword} = $id;
     }
-    $sth_keyword_sel->finish();
 
     $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_KEYWORDS ] );
 }
@@ -173,13 +187,12 @@ sub insertKeywords {
 
         $DEBUG and print STDOUT "Loading keyword: $keyword\n";
 
-        $sth_keyword_ins->bind_param(1, $keyword);
-        $sth_keyword_ins->execute() or die("Execute Failed: " . $sth_keyword_ins->errstr);
+        $dbObj->insert($sth_keyword_ins, ( $keyword ));
 
-        my $id = $dbh->sqlite_last_insert_rowid;
+        my $id = &getPk;
         $INS_KEYWORDS->{$keyword} = $id;
     }
-    $sth_keyword_ins->finish();
+    $dbObj->finish($sth_keyword_ins);
 }
 
 #------------------------------------------------------------------------------
@@ -188,14 +201,13 @@ sub insertKeywords {
 
 sub queryAuthors {
 
-    my $stat = $sth_author_sel->execute() or die("Execute Failed: " . $sth_author_sel->errstr);
+    my $values = $dbObj->select_hash($sql_author_sel);
 
-    while (my $row = $sth_author_sel->fetchrow_hashref()) {
+    foreach my $row (@$values) {
         my $id = $row->{'id'};
         my $name_sig = ( &createSigs($row->{'full_name'}) )[0];
         $SEL_AUTHORS->{$name_sig} = $id;
     }
-    $sth_author_sel->finish();
 
     $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_AUTHORS ] );
 }
@@ -220,18 +232,20 @@ sub insertAuthors {
 
         $DEBUG and print STDOUT "Loading author: $name\n";
 
-        $sth_author_ins->bind_param(1, $name);
-        $sth_author_ins->bind_param(2, $birth_date);
-        $sth_author_ins->bind_param(3, $death_date);
-        $sth_author_ins->bind_param(4, $description);
-        $sth_author_ins->bind_param(5, $bio_url);
+        $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $bio_url));
 
-        $sth_author_ins->execute() or die("Execute Failed: " . $sth_author_ins->errstr);
-
-        my $id = $dbh->sqlite_last_insert_rowid;
+        my $id = &getPk;
         $author_ref->{'id'} = $id;
     }
     $sth_author_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# getPk: Returns the primary key value inserted
+#------------------------------------------------------------------------------
+
+sub getPk {
+    return $dbObj->{'dbh'}->sqlite_last_insert_rowid;
 }
 
 #------------------------------------------------------------------------------
@@ -240,8 +254,8 @@ sub insertAuthors {
 
 sub usage {
     print STDERR <<_USAGE;
-Usage:   ./$COMMAND --db-file <database file> [ --debug --verbose ] < <author JSON>
-Example: ./$COMMAND --db-file myquotes.sqlite3 --debug --verbose < filter_quotes_output.json
+Usage:   ./$COMMAND --db-conf <database config file> [ --debug --verbose ] < <author JSON>
+Example: ./$COMMAND --db-conf myquotes.conf --debug --verbose < filter_quotes_output.json
 _USAGE
 
     exit(1);

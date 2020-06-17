@@ -365,7 +365,7 @@ sub select($$;@) {
 
 	# Bind any parameters
 	#
-	my $bind_ct =1;
+	my $bind_ct = 1;
 	foreach my $param (@_) {
 		$sth->bind_param($bind_ct, $param);
 		$bind_ct++;
@@ -506,7 +506,6 @@ sub single_select ($$;@) {
 
 	return undef;
 }
-
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # insert/update/delete/exec_sql

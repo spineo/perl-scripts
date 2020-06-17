@@ -1,0 +1,10 @@
+# Only the database specific properties required, rest can be commended out
+#
+conn_str=<full connection string>
+server=<name of the server, i.e., sqlite, mysql, postgresql, oracle>
+host=<host name>
+username=<user name>
+password<password>
+database<database name>
+sid=<user id>
+filename=<path to file name if SQLite db>

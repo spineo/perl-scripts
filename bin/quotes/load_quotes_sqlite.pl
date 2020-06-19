@@ -40,7 +40,7 @@ use JSON qw(from_json);;
 use DBI;
 
 use lib qw(../../lib);
-use Util::Quotes qw(createSigs);
+use Util::Quotes qw(createSig);
 
 
 # Database wrapper, uses the database configuration file supplied as command-line option
@@ -98,6 +98,7 @@ our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'bio_extract', 'bi
 my $dbObj = new Util::DB();
 $dbObj->initialize($DB_CONF);
 #$dbObj->setAttr('AutoCommit', 1);
+#$dbObj->no_exit_on_error;
 
 my $sql_keyword_sel = qq|SELECT * from $KEYWORD_TBL|;
 my $sth_keyword_ins = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
@@ -187,10 +188,11 @@ sub insertKeywords {
 
         $DEBUG and print STDOUT "Loading keyword: $keyword\n";
 
-        $dbObj->insert($sth_keyword_ins, ( $keyword ));
-
-        my $id = &getPk;
-        $INS_KEYWORDS->{$keyword} = $id;
+        my $stat = $dbObj->insert($sth_keyword_ins, ( $keyword ));
+        if (! $stat) {
+            my $id = &getPk;
+            $INS_KEYWORDS->{$keyword} = $id;
+        }
     }
     $dbObj->finish($sth_keyword_ins);
 }
@@ -205,7 +207,7 @@ sub queryAuthors {
 
     foreach my $row (@$values) {
         my $id = $row->{'id'};
-        my $name_sig = ( &createSigs($row->{'full_name'}) )[0];
+        my $name_sig = &createSig($row->{'full_name'});
         $SEL_AUTHORS->{$name_sig} = $id;
     }
 
@@ -232,10 +234,11 @@ sub insertAuthors {
 
         $DEBUG and print STDOUT "Loading author: $name\n";
 
-        $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $bio_url));
-
-        my $id = &getPk;
-        $author_ref->{'id'} = $id;
+        my $stat = $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $bio_url));
+        if (! $stat) {
+            my $id = &getPk;
+            $SEL_AUTHORS->{$name_sig} = $id;
+        }
     }
     $sth_author_ins->finish();
 }

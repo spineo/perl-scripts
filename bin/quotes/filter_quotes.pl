@@ -45,7 +45,7 @@ use JSON qw(to_json);;
 # These found in ../lib
 #
 use lib qw(../../lib);
-use Util::Quotes qw(createSigs inASCIISet validateKeywords);
+use Util::Quotes qw(createSig inASCIISet validateKeywords);
 use Util::GenericUtils qw(trim trim_all);
 
 # Global variables
@@ -114,9 +114,7 @@ while(<AUTHORS>) {
     @author{@AUTHOR_FIELDS} = @comps;
 
 
-    my ($name_sig, $lname_sig) = &createSigs($author{'name'});
-
-    $author{'lname_sig'} = $lname_sig;
+    my $name_sig = &createSig($author{'name'});
 
     $AUTHORS_REF->{$name_sig} = \%author;
 }
@@ -158,7 +156,7 @@ while(<EVENTS>) {
     delete($event{'author'});
 
 
-    my ($name_sig, $lname_sig) = &createSigs($event_author);
+    my $name_sig = &createSig($event_author);
 
     push(@{$AUTHORS_REF->{$name_sig}->{'events'}}, \%event);
 }
@@ -223,15 +221,14 @@ while(<QUOTES>) {
     }
 
 
-    my ($name_sig, $lname_sig) = &createSigs($quote{'author'});
+    my $name_sig = &createSig($quote{'author'});
 
     # Check if this quote is associated with any of our authors
     #
     foreach my $auth_name_sig (sort keys %$AUTHORS_REF) {
         my $auth_ref = $AUTHORS_REF->{$auth_name_sig};
-        my $auth_lname_sig = $auth_ref->{'lname_sig'};
 
-        # Compare on full name signature or last name signature (additional filter may be needed)
+        # Compare on full name signature (additional filter may be needed)
         #
         if ($name_sig eq $auth_name_sig) {
            push(@{$auth_ref->{'quotes'}}, \%quote);

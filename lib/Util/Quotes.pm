@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(parseConfig cleanupTagsText createSigs inASCIISet validateKeywords);
+@EXPORT_OK = qw(parseConfig cleanupTagsText createSig inASCIISet validateKeywords);
 
 
 #------------------------------------------------------------------------------
@@ -98,45 +98,40 @@ sub cleanupTagsText {
 }
 
 #------------------------------------------------------------------------------
-# createSigs
+# createSig
 
-# Construct the author signatures by removing all empty spaces, lowercasing, 
-# removing common pre/suffixes, and removing non-alpha characters. A separate 
-# signature on last name will also be returned.
+# Construct the text signature by removing all empty spaces, lowercasing, 
+# removing common pre/suffixes (for authors), and removing non-alpha characters.
 #------------------------------------------------------------------------------
 
-sub createSigs {
+sub createSig {
 
-    my $name = shift;
+    my $text = shift;
 
     # Lower case
     #
-    $name = lc($name);
+    $text = lc($text);
 
-    # Remove prefix/suffix
+    # Remove prefix/suffix (author)
     #
-    $name =~ s/\W(jr|sr)\.//;
-    $name =~ s/^sir\W//;
+    $text =~ s/\W(jr|sr)\.//;
+    $text =~ s/^sir\W//;
 
     # Remove any extra spaces
     #
-    $name =~ s/^\s+//;
-    $name =~ s/\s+$//;
-    $name =~ s/\s+/ /g;
+    $text =~ s/^\s+//;
+    $text =~ s/\s+$//;
+    $text =~ s/\s+/ /g;
 
     # Remove non-alpha, non-space characters
     #
-    $name  =~ s/[^a-z ]//g;
-
-    # Get the presumed last name (or single name)
-    #
-    my $lname = pop [ split(/ /, $name) ];
+    $text =~ s/[^a-z ]//g;
 
     # Change space to dash
     #
-    $name =~ s/ /-/g;
+    $text =~ s/ /-/g;
 
-    return ($name, $lname);
+    return $text;
 }
 
 #------------------------------------------------------------------------------

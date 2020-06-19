@@ -92,10 +92,10 @@ our $KEYWORD_TBL  = qq|myquotes_keyword|;
 our @KEYWORD_COLS = ('keyword');
 
 our $AUTHOR_TBL   = qq|myquotes_author|;
-our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'bio_extract', 'bio_source_url');
+our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'description', 'bio_extract', 'bio_source_url');
 
 our $QUOTE_TBL    = qq|myquotes_quotation|;
-our @QUOTE_COLS   = ('quotation', 'quotation_source', 'author_id_id');
+our @QUOTE_COLS   = ('quotation', 'source', 'author_id');
 
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
@@ -107,7 +107,7 @@ my $sql_keyword_sel = qq|SELECT * from $KEYWORD_TBL|;
 my $sth_keyword_ins = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
 
 my $sql_author_sel  = qq|SELECT * from $AUTHOR_TBL|;
-my $sth_author_ins  = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
+my $sth_author_ins  = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?)");
 
 my $sql_quote_sel  = qq|SELECT * from $QUOTE_TBL|;
 my $sth_quote_ins  = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
@@ -247,11 +247,12 @@ sub insertAuthors {
         my $birth_date  = defined($author_ref->{'birth_date'})  ? $author_ref->{'birth_date'}  : "";
         my $death_date  = defined($author_ref->{'death_date'})  ? $author_ref->{'death_date'}  : "";
         my $description = defined($author_ref->{'description'}) ? $author_ref->{'description'} : "";
-        my $bio_url     = defined($author_ref->{'bio_url'})     ? $author_ref->{'bio_url'}     : "";
+        my $extract     = defined($author_ref->{'bio_extract'}) ? $author_ref->{'description'} : "";
+        my $url         = defined($author_ref->{'bio_url'})     ? $author_ref->{'bio_url'}     : "";
 
         $DEBUG and print STDOUT "Loading author: $name\n";
 
-        my $stat = $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $bio_url));
+        my $stat = $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $extract, $url));
         if (! $stat) {
             my $id = &getPk;
             $SEL_AUTHORS->{$name_sig} = $id;

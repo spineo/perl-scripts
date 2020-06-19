@@ -88,29 +88,35 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 
 # Tables/columns
 #
-our $KEYWORD_TBL  = qq|myquotes_keyword|;
-our @KEYWORD_COLS = ('keyword');
+our $KEYWORD_TBL   = qq|myquotes_keyword|;
+our @KEYWORD_COLS  = ('keyword');
 
-our $AUTHOR_TBL   = qq|myquotes_author|;
-our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'description', 'bio_extract', 'bio_source_url');
+our $AUTHOR_TBL    = qq|myquotes_author|;
+our @AUTHOR_COLS   = ('full_name', 'birth_date', 'death_date', 'description', 'bio_extract', 'bio_source_url');
 
-our $QUOTE_TBL    = qq|myquotes_quotation|;
-our @QUOTE_COLS   = ('quotation', 'source', 'author_id');
+our $QUOTE_TBL     = qq|myquotes_quotation|;
+our @QUOTE_COLS    = ('quotation', 'source', 'author_id');
+
+our $QUOTE_KW_TBL  = qq|myquotes_quotationkeyword_keyword|;
+our @QUOTE_KW_COLS = ('quotationkeyword_id', 'keyword_id');
 
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
 $dbObj->initialize($DB_CONF);
 #$dbObj->setAttr('AutoCommit', 1);
-#$dbObj->no_exit_on_error;
 
-my $sql_keyword_sel = qq|SELECT * from $KEYWORD_TBL|;
-my $sth_keyword_ins = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
+$dbObj->no_exit_on_error;
 
-my $sql_author_sel  = qq|SELECT * from $AUTHOR_TBL|;
-my $sth_author_ins  = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?)");
+my $sql_keyword_sel  = qq|SELECT * from $KEYWORD_TBL|;
+my $sth_keyword_ins  = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
 
-my $sql_quote_sel  = qq|SELECT * from $QUOTE_TBL|;
-my $sth_quote_ins  = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
+my $sql_author_sel   = qq|SELECT * from $AUTHOR_TBL|;
+my $sth_author_ins   = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?)");
+
+my $sql_quote_sel    = qq|SELECT * from $QUOTE_TBL|;
+my $sth_quote_ins    = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
+
+my $sth_quote_kw_ins = $dbObj->prepare("INSERT INTO $QUOTE_KW_TBL(" . join(',', @QUOTE_KW_COLS) .  ") VALUES (?, ?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -144,6 +150,13 @@ our $INS_QUOTES = {};
 
 &queryQuotes();
 &insertQuotes($authors_ref);
+
+
+#------------------------------------------------------------------------------
+# Load the quotes keywords
+#------------------------------------------------------------------------------
+
+&insertQuotesKeywords($authors_ref);
 
 
 #------------------------------------------------------------------------------
@@ -272,7 +285,7 @@ sub queryQuotes {
     foreach my $row (@$values) {
         my $id = $row->{'id'};
         my $sig = &createSig($row->{'quotation'});
-        $SEL_AUTHORS->{$sig} = $id;
+        $SEL_QUOTES->{$sig} = $id;
     }
 
     $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_QUOTES ] );
@@ -302,7 +315,7 @@ sub insertQuotes {
 
             my $source = $quote_ref->{'source'};
 
-            $DEBUG and print STDOUT "Loading quote: $quote`\n";
+            $DEBUG and print STDOUT "Loading quote: $quote\n";
 
             my $stat = $dbObj->insert($sth_quote_ins, ($quote, $source, $author_id));
             if (! $stat) {
@@ -315,6 +328,41 @@ sub insertQuotes {
 }
 
 #------------------------------------------------------------------------------
+# insertQuotesKeywords: Load the quotes keywords
+#------------------------------------------------------------------------------
+
+sub insertQuotesKeywords {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $quotes_ref  = $author_ref->{'quotes'};
+
+        foreach my $quote_ref (@$quotes_ref) {
+            my $quote = $quote_ref->{'quote'};
+            my $sig   = createSig($quote);
+
+            # Already inserted?
+            #
+            my $quote_id = $SEL_QUOTES->{$sig};
+            next if ! $quote_id;
+
+            my @keywords = split(/\s*,\s*/, $quote_ref->{'keywords'});
+            foreach my $keyword (@keywords) {
+                my $keyword_id = $SEL_KEYWORDS->{$keyword};
+
+                next if ! $keyword_id;
+
+                $DEBUG and print STDOUT "Loading quote keyword. Quote Id: $quote_id, Keyword Id: $keyword_id\n";
+
+                $dbObj->insert($sth_quote_kw_ins, ($quote_id, $keyword_id));
+            }
+        }
+    }
+    $sth_quote_kw_ins->finish();
+}
+
 #------------------------------------------------------------------------------
 # getPk: Returns the primary key value inserted
 #------------------------------------------------------------------------------

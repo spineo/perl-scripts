@@ -40,7 +40,7 @@ use JSON qw(from_json);;
 use DBI;
 
 use lib qw(../../lib);
-use Util::Quotes qw(createSig);
+use Util::Quotes qw(createSig getSeason);
 
 
 # Database wrapper, uses the database configuration file supplied as command-line option
@@ -100,6 +100,9 @@ our @QUOTE_COLS    = ('quotation', 'source', 'author_id');
 our $QUOTE_KW_TBL  = qq|myquotes_quotationkeyword_keyword|;
 our @QUOTE_KW_COLS = ('quotationkeyword_id', 'keyword_id');
 
+our $EVENT_TBL     = qq|myquotes_event|;
+our @EVENT_COLS    = ('event', 'day', 'month', 'year', 'season');
+
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
 $dbObj->initialize($DB_CONF);
@@ -117,6 +120,9 @@ my $sql_quote_sel    = qq|SELECT * from $QUOTE_TBL|;
 my $sth_quote_ins    = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
 
 my $sth_quote_kw_ins = $dbObj->prepare("INSERT INTO $QUOTE_KW_TBL(" . join(',', @QUOTE_KW_COLS) .  ") VALUES (?, ?)");
+
+my $sql_event_sel    = qq|SELECT * from $EVENT_TBL|;
+my $sth_event_ins    = $dbObj->prepare("INSERT INTO $EVENT_TBL(" . join(',', @EVENT_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -158,6 +164,16 @@ our $INS_QUOTES = {};
 
 &insertQuotesKeywords($authors_ref);
 
+
+#------------------------------------------------------------------------------
+# Load the events
+#------------------------------------------------------------------------------
+
+our $SEL_EVENTS = {};
+our $INS_EVENTS = {};
+
+&queryEvents();
+&insertEvents($authors_ref);
 
 #------------------------------------------------------------------------------
 # Cleanup
@@ -361,6 +377,62 @@ sub insertQuotesKeywords {
         }
     }
     $sth_quote_kw_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# queryEvents: Query from events table to avoid inserting duplicates
+#------------------------------------------------------------------------------
+
+sub queryEvents {
+
+    my $values = $dbObj->select_hash($sql_event_sel);
+
+    foreach my $row (@$values) {
+        my $id = $row->{'id'};
+        my $sig = &createSig($row->{'event'});
+        $SEL_EVENTS->{$sig} = $id;
+    }
+
+    $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_EVENTS ] );
+}
+
+#------------------------------------------------------------------------------
+# insertEvents: Load the events, storing the returned primary key as hash value.
+#------------------------------------------------------------------------------
+
+sub insertEvents {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $events_ref  = $author_ref->{'events'};
+
+        foreach my $event_ref (@$events_ref) {
+            my $event = $event_ref->{'event'};
+            my $sig   = createSig($event);
+
+            # Already inserted?
+            #
+            next if defined($SEL_EVENTS->{$sig});
+
+            my ($year, $month, $day) = split('-', $event_ref->{'event_date'});
+
+            # Compute the season
+            #
+            my $season = "";
+            $season = &getSeason($month, $day) if ($month and $day);
+
+            $DEBUG and print STDOUT "Loading event: $event\n";
+
+            my $stat = $dbObj->insert($sth_event_ins, ($event, $day, $month, $year, $season));
+            if (! $stat) {
+                my $id = &getPk;
+                $SEL_EVENTS->{$sig} = $id;
+            }
+        }
+    }
+    $sth_event_ins->finish();
 }
 
 #------------------------------------------------------------------------------

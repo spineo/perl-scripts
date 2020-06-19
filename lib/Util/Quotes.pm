@@ -35,7 +35,7 @@ $VERSION = 0.01;
 
 @ISA = qw( Exporter );
 
-@EXPORT_OK = qw(parseConfig cleanupTagsText createSig inASCIISet validateKeywords);
+@EXPORT_OK = qw(parseConfig cleanupTagsText createSig inASCIISet validateKeywords getSeason);
 
 
 #------------------------------------------------------------------------------
@@ -180,6 +180,26 @@ sub _isKeywordValid {
     return 0 if ($text =~ m/[^a-z0-9\-]/);
 
     return 1; 
+}
+
+#------------------------------------------------------------------------------
+# getSeason
+#
+# Return the "safe" season based on month and day (does not take into account year/solstice)
+#------------------------------------------------------------------------------
+
+sub getSeason {
+    my ($month, $day) = @_;
+
+    return "Winter" if (($month == 12 and $day >= 22) or ($month < 3) or ($month == 3 and $day < 20));
+
+    return "Spring" if (($month == 3 and $day >= 22) or ($month > 3 and $month < 6) or ($month == 6 and $day < 20));
+
+    return "Summer" if (($month == 6 and $day >= 22) or ($month > 6 and $month < 9) or ($month == 9 and $day < 20));
+
+    return "Fall" if (($month == 9 and $day >= 22) or ($month > 9 and $month < 12) or ($month == 12 and $day < 20));
+
+    return "";
 }
 
 1;

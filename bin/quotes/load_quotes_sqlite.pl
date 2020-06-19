@@ -103,6 +103,12 @@ our @QUOTE_KW_COLS = ('quotationkeyword_id', 'keyword_id');
 our $EVENT_TBL     = qq|myquotes_event|;
 our @EVENT_COLS    = ('event', 'day', 'month', 'year', 'season');
 
+our $EVENT_AU_TBL  = qq|myquotes_eventauthor|;
+our @EVENT_AU_COLS = ('event_id', 'author_id');
+
+our $EVENT_KW_TBL  = qq|myquotes_eventkeyword_keyword|;
+our @EVENT_KW_COLS = ('eventkeyword_id', 'keyword_id');
+
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
 $dbObj->initialize($DB_CONF);
@@ -123,6 +129,10 @@ my $sth_quote_kw_ins = $dbObj->prepare("INSERT INTO $QUOTE_KW_TBL(" . join(',', 
 
 my $sql_event_sel    = qq|SELECT * from $EVENT_TBL|;
 my $sth_event_ins    = $dbObj->prepare("INSERT INTO $EVENT_TBL(" . join(',', @EVENT_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
+
+my $sth_event_au_ins = $dbObj->prepare("INSERT INTO $EVENT_AU_TBL(" . join(',', @EVENT_AU_COLS) .  ") VALUES (?, ?)");
+
+my $sth_event_kw_ins = $dbObj->prepare("INSERT INTO $EVENT_KW_TBL(" . join(',', @EVENT_KW_COLS) .  ") VALUES (?, ?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -174,6 +184,21 @@ our $INS_EVENTS = {};
 
 &queryEvents();
 &insertEvents($authors_ref);
+
+
+#------------------------------------------------------------------------------
+# Load the events authors
+#------------------------------------------------------------------------------
+
+&insertEventsAuthors($authors_ref);
+
+
+#------------------------------------------------------------------------------
+# Load the events keywords
+#------------------------------------------------------------------------------
+
+&insertEventsKeywords($authors_ref);
+
 
 #------------------------------------------------------------------------------
 # Cleanup
@@ -433,6 +458,74 @@ sub insertEvents {
         }
     }
     $sth_event_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# insertEventsAuthors: Load the events authors
+#------------------------------------------------------------------------------
+
+sub insertEventsAuthors {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_id  = $SEL_AUTHORS->{$name_sig};
+        next if ! $author_id;
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $events_ref  = $author_ref->{'events'};
+
+        foreach my $event_ref (@$events_ref) {
+            my $event = $event_ref->{'event'};
+            my $sig   = createSig($event);
+
+            # Already inserted?
+            #
+            my $event_id = $SEL_EVENTS->{$sig};
+            next if ! $event_id;
+
+            $DEBUG and print STDOUT "Loading event author. Event Id: $event_id, Author Id: $author_id\n";
+
+            $dbObj->insert($sth_event_au_ins, ($event_id, $author_id));
+        }
+    }
+    $sth_quote_kw_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# insertEventsKeywords: Load the events keywords
+#------------------------------------------------------------------------------
+
+sub insertEventsKeywords {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $events_ref  = $author_ref->{'events'};
+
+        foreach my $event_ref (@$events_ref) {
+            my $event = $event_ref->{'event'};
+            my $sig   = createSig($event);
+
+            # Already inserted?
+            #
+            my $event_id = $SEL_EVENTS->{$sig};
+            next if ! $event_id;
+
+            my @keywords = split(/\s*,\s*/, $event_ref->{'keywords'});
+            foreach my $keyword (@keywords) {
+                my $keyword_id = $SEL_KEYWORDS->{$keyword};
+
+                next if ! $keyword_id;
+
+                $DEBUG and print STDOUT "Loading event keyword. Event Id: $event_id, Keyword Id: $keyword_id\n";
+
+                $dbObj->insert($sth_event_kw_ins, ($event_id, $keyword_id));
+            }
+        }
+    }
+    $sth_event_kw_ins->finish();
 }
 
 #------------------------------------------------------------------------------

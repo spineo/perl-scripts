@@ -94,6 +94,9 @@ our @KEYWORD_COLS = ('keyword');
 our $AUTHOR_TBL   = qq|myquotes_author|;
 our @AUTHOR_COLS  = ('full_name', 'birth_date', 'death_date', 'bio_extract', 'bio_source_url');
 
+our $QUOTE_TBL    = qq|myquotes_quotation|;
+our @QUOTE_COLS   = ('quotation', 'quotation_source', 'author_id_id');
+
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
 $dbObj->initialize($DB_CONF);
@@ -105,6 +108,9 @@ my $sth_keyword_ins = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES 
 
 my $sql_author_sel  = qq|SELECT * from $AUTHOR_TBL|;
 my $sth_author_ins  = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
+
+my $sql_quote_sel  = qq|SELECT * from $QUOTE_TBL|;
+my $sth_quote_ins  = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -127,6 +133,17 @@ our $INS_AUTHORS = {};
 
 &queryAuthors();
 &insertAuthors($authors_ref);
+
+
+#------------------------------------------------------------------------------
+# Load the quotes
+#------------------------------------------------------------------------------
+
+our $SEL_QUOTES = {};
+our $INS_QUOTES = {};
+
+&queryQuotes();
+&insertQuotes($authors_ref);
 
 
 #------------------------------------------------------------------------------
@@ -243,6 +260,60 @@ sub insertAuthors {
     $sth_author_ins->finish();
 }
 
+#------------------------------------------------------------------------------
+# queryQuotes: Query from quotes table to avoid inserting duplicates
+#------------------------------------------------------------------------------
+
+sub queryQuotes {
+
+    my $values = $dbObj->select_hash($sql_quote_sel);
+
+    foreach my $row (@$values) {
+        my $id = $row->{'id'};
+        my $sig = &createSig($row->{'quotation'});
+        $SEL_AUTHORS->{$sig} = $id;
+    }
+
+    $DEBUG and print STDERR Data::Dumper->Dump( [ $SEL_QUOTES ] );
+}
+
+#------------------------------------------------------------------------------
+# insertQuotes: Load the quotes, storing the returned primary key as hash value.
+#------------------------------------------------------------------------------
+
+sub insertQuotes {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $quotes_ref  = $author_ref->{'quotes'};
+
+        my $author_id   = $SEL_AUTHORS->{$name_sig};
+
+        foreach my $quote_ref (@$quotes_ref) {
+            my $quote = $quote_ref->{'quote'};
+            my $sig   = createSig($quote);
+
+            # Already inserted?
+            #
+            next if defined($SEL_QUOTES->{$sig});
+
+            my $source = $quote_ref->{'source'};
+
+            $DEBUG and print STDOUT "Loading quote: $quote`\n";
+
+            my $stat = $dbObj->insert($sth_quote_ins, ($quote, $source, $author_id));
+            if (! $stat) {
+                my $id = &getPk;
+                $SEL_QUOTES->{$sig} = $id;
+            }
+        }
+    }
+    $sth_quote_ins->finish();
+}
+
+#------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 # getPk: Returns the primary key value inserted
 #------------------------------------------------------------------------------

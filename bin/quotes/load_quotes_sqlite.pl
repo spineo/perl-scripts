@@ -58,6 +58,15 @@ chomp($COMMAND);
 
 our $VERSION = "1.0";
 
+# Date validation
+#
+our $MAX_YEAR  = 2025;
+our $MIN_YEAR  = -1000;
+our $MAX_MONTH = 12;
+our $MIN_MONTH = 1;
+our $MAX_DAY   = 31;
+our $MIN_DAY   = 1;
+
 # Generic variables
 #
 our $VERBOSE = 0;
@@ -85,14 +94,12 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 #------------------------------------------------------------------------------
 # Connect to the database and prepare the inserts
 #------------------------------------------------------------------------------
-
-# Tables/columns
 #
 our $KEYWORD_TBL   = qq|myquotes_keyword|;
 our @KEYWORD_COLS  = ('keyword');
 
 our $AUTHOR_TBL    = qq|myquotes_author|;
-our @AUTHOR_COLS   = ('full_name', 'birth_date', 'death_date', 'description', 'bio_extract', 'bio_source_url');
+our @AUTHOR_COLS   = ('full_name', 'birth_date', 'birth_year', 'birth_month', 'birth_day', 'death_date', 'death_year', 'death_month', 'death_day', 'description', 'bio_extract', 'bio_source_url');
 
 our $QUOTE_TBL     = qq|myquotes_quotation|;
 our @QUOTE_COLS    = ('quotation', 'source', 'author_id');
@@ -120,7 +127,7 @@ my $sql_keyword_sel  = qq|SELECT * from $KEYWORD_TBL|;
 my $sth_keyword_ins  = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
 
 my $sql_author_sel   = qq|SELECT * from $AUTHOR_TBL|;
-my $sth_author_ins   = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?)");
+my $sth_author_ins   = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
 my $sql_quote_sel    = qq|SELECT * from $QUOTE_TBL|;
 my $sth_quote_ins    = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
@@ -298,15 +305,44 @@ sub insertAuthors {
 
         my $author_ref  = $authors_ref->{$name_sig};
         my $name        = $author_ref->{'name'};
-        my $birth_date  = defined($author_ref->{'birth_date'})  ? $author_ref->{'birth_date'}  : "";
-        my $death_date  = defined($author_ref->{'death_date'})  ? $author_ref->{'death_date'}  : "";
+        my $birth_date  = "";
+        my $bneg;
+        my ($byear, $bmonth, $bday);
+        if (defined($author_ref->{'birth_date'})) {
+            $birth_date = $author_ref->{'birth_date'};
+            $birth_date =~ s/\-0/-/g;
+            $birth_date =~ m/^\-/ and ($birth_date =~ s/^\-//) and ($bneg = "-");
+
+            ($byear, $bmonth, $bday) = split('-', $birth_date);
+            $byear  = ($byear <= $MAX_YEAR and $byear >= $MIN_YEAR)     ? "$bneg$byear" : "";
+            $bmonth = ($bmonth <= $MAX_MONTH and $bmonth >= $MIN_MONTH) ? $bmonth : "";
+            $bday   = ($bday <= $MAX_DAY and $bday >= $MIN_DAY)         ? $bday : "";
+
+            not ($byear and $bmonth and $bday) and $birth_date = "";
+        }
+
+        my $death_date  = "";
+        my $dneg;
+        my ($dyear, $dmonth, $dday);
+        if (defined($author_ref->{'death_date'})) {
+            $death_date = $author_ref->{'death_date'};
+            $death_date =~ s/\-0/-/g;
+            $death_date =~ m/^\-/ and ($death_date =~ s/^\-//) and ($dneg = "-");
+            
+            ($dyear, $dmonth, $dday) = split('-', $death_date);
+            $dyear  = ($dyear <= $MAX_YEAR and $dyear >= $MIN_YEAR)     ? "$dneg$dyear" : "";
+            $dmonth = ($dmonth <= $MAX_MONTH and $dmonth >= $MIN_MONTH) ? $dmonth : "";
+            $dday   = ($dday <= $MAX_DAY and $dday >= $MIN_DAY)         ? $dday : "";
+
+            not ($dyear and $dmonth and $dday) and $death_date = "";
+        }
         my $description = defined($author_ref->{'description'}) ? $author_ref->{'description'} : "";
-        my $extract     = defined($author_ref->{'bio_extract'}) ? $author_ref->{'description'} : "";
+        my $extract     = defined($author_ref->{'bio_extract'}) ? $author_ref->{'bio_extract'} : "";
         my $url         = defined($author_ref->{'bio_url'})     ? $author_ref->{'bio_url'}     : "";
 
         $DEBUG and print STDOUT "Loading author: $name\n";
 
-        my $stat = $dbObj->insert($sth_author_ins, ($name, $birth_date, $death_date, $description, $extract, $url));
+        my $stat = $dbObj->insert($sth_author_ins, ($name, $birth_date, $byear, $bmonth, $bday, $death_date, $dyear, $dmonth, $dday, $description, $extract, $url));
         if (! $stat) {
             my $id = &getPk;
             $SEL_AUTHORS->{$name_sig} = $id;
@@ -441,7 +477,9 @@ sub insertEvents {
             #
             next if defined($SEL_EVENTS->{$sig});
 
-            my ($year, $month, $day) = split('-', $event_ref->{'event_date'});
+            my $event_date = $event_ref->{'event_date'};
+            $event_date =~ s/\-0/-/g;
+            my ($year, $month, $day) = split('-', $event_date);
 
             # Compute the season
             #

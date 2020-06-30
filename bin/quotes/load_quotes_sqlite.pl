@@ -269,7 +269,8 @@ sub insertKeywords {
         my $stat = $dbObj->insert($sth_keyword_ins, ( $keyword ));
         if (! $stat) {
             my $id = &getPk;
-            $INS_KEYWORDS->{$keyword} = $id;
+            #$INS_KEYWORDS->{$keyword} = $id;
+            $SEL_KEYWORDS->{$keyword} = $id;
         }
     }
     $dbObj->finish($sth_keyword_ins);
@@ -305,8 +306,8 @@ sub insertAuthors {
 
         my $author_ref  = $authors_ref->{$name_sig};
         my $name        = $author_ref->{'name'};
-        my $bneg;
-        my ($byear, $bmonth, $bday);
+        my $bneg = "";
+        my ($byear, $bmonth, $bday) = "";
         if (defined($author_ref->{'birth_date'})) {
             my $birth_date = $author_ref->{'birth_date'};
             $birth_date =~ s/\-0/-/g;
@@ -318,8 +319,8 @@ sub insertAuthors {
             $bday   = ($bday <= $MAX_DAY and $bday >= $MIN_DAY)         ? $bday : "";
         }
 
-        my $dneg;
-        my ($dyear, $dmonth, $dday);
+        my $dneg = "";
+        my ($dyear, $dmonth, $dday) = "";
         if (defined($author_ref->{'death_date'})) {
             my $death_date = $author_ref->{'death_date'};
             $death_date =~ s/\-0/-/g;

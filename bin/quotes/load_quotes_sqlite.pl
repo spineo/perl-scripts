@@ -95,26 +95,32 @@ $DEBUG and print STDERR Data::Dumper->Dump( [ $authors_ref ]);
 # Connect to the database and prepare the inserts
 #------------------------------------------------------------------------------
 #
-our $KEYWORD_TBL   = qq|myquotes_keyword|;
-our @KEYWORD_COLS  = ('keyword');
+our $KEYWORD_TBL    = qq|myquotes_keyword|;
+our @KEYWORD_COLS   = ('keyword');
 
-our $AUTHOR_TBL    = qq|myquotes_author|;
-our @AUTHOR_COLS   = ('full_name', 'birth_year', 'birth_month', 'birth_day', 'death_year', 'death_month', 'death_day', 'description', 'bio_source_url');
+our $AUTHOR_TBL     = qq|myquotes_author|;
+our @AUTHOR_COLS    = ('full_name', 'birth_year', 'birth_month', 'birth_day', 'death_year', 'death_month', 'death_day', 'description', 'bio_source_url');
 
-our $QUOTE_TBL     = qq|myquotes_quotation|;
-our @QUOTE_COLS    = ('quotation', 'source', 'author_id');
+our $QUOTE_TBL      = qq|myquotes_quotation|;
+our @QUOTE_COLS     = ('quotation', 'source', 'author_id');
 
-our $QUOTE_KW_TBL  = qq|myquotes_quotationkeyword_keyword|;
-our @QUOTE_KW_COLS = ('quotationkeyword_id', 'keyword_id');
+our $QUOTE_QKW_TBL  = qq|myquotes_quotationkeyword_keyword|;
+our @QUOTE_QKW_COLS = ('quotationkeyword_id', 'keyword_id');
 
-our $EVENT_TBL     = qq|myquotes_event|;
-our @EVENT_COLS    = ('event', 'day', 'month', 'year', 'season');
+our $QUOTE_KW_TBL  = qq|myquotes_quotationkeyword|;
+our @QUOTE_KW_COLS  = ('quotation_id');
 
-our $EVENT_AU_TBL  = qq|myquotes_eventauthor|;
-our @EVENT_AU_COLS = ('event_id', 'author_id');
+our $EVENT_TBL      = qq|myquotes_event|;
+our @EVENT_COLS     = ('event', 'day', 'month', 'year', 'season');
 
-our $EVENT_KW_TBL  = qq|myquotes_eventkeyword_keyword|;
-our @EVENT_KW_COLS = ('eventkeyword_id', 'keyword_id');
+our $EVENT_AU_TBL   = qq|myquotes_eventauthor|;
+our @EVENT_AU_COLS  = ('event_id', 'author_id');
+
+our $EVENT_EKW_TBL  = qq|myquotes_eventkeyword_keyword|;
+our @EVENT_EKW_COLS = ('eventkeyword_id', 'keyword_id');
+
+our $EVENT_KW_TBL   = qq|myquotes_eventkeyword|;
+our @EVENT_KW_COLS  = ('event_id');
 
 # AutoCommit default to 0 in this API so must explicity commit (unless it is changed to 1)
 my $dbObj = new Util::DB();
@@ -123,23 +129,25 @@ $dbObj->initialize($DB_CONF);
 
 $dbObj->no_exit_on_error;
 
-my $sql_keyword_sel  = qq|SELECT * from $KEYWORD_TBL|;
-my $sth_keyword_ins  = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
+my $sql_keyword_sel   = qq|SELECT * from $KEYWORD_TBL|;
+my $sth_keyword_ins   = $dbObj->prepare("INSERT INTO $KEYWORD_TBL(keyword) VALUES (?)");
 
-my $sql_author_sel   = qq|SELECT * from $AUTHOR_TBL|;
-my $sth_author_ins   = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+my $sql_author_sel    = qq|SELECT * from $AUTHOR_TBL|;
+my $sth_author_ins    = $dbObj->prepare("INSERT INTO $AUTHOR_TBL(" . join(',', @AUTHOR_COLS) .  ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-my $sql_quote_sel    = qq|SELECT * from $QUOTE_TBL|;
-my $sth_quote_ins    = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
+my $sql_quote_sel     = qq|SELECT * from $QUOTE_TBL|;
+my $sth_quote_ins     = $dbObj->prepare("INSERT INTO $QUOTE_TBL(" . join(',', @QUOTE_COLS) .  ") VALUES (?, ?, ?)");
 
-my $sth_quote_kw_ins = $dbObj->prepare("INSERT INTO $QUOTE_KW_TBL(" . join(',', @QUOTE_KW_COLS) .  ") VALUES (?, ?)");
+my $sth_quote_qkw_ins = $dbObj->prepare("INSERT INTO $QUOTE_QKW_TBL(" . join(',', @QUOTE_QKW_COLS) .  ") VALUES (?, ?)");
+my $sth_quote_kw_ins  = $dbObj->prepare("INSERT INTO $QUOTE_KW_TBL(" . join(',', @QUOTE_KW_COLS) .  ") VALUES (?)");
 
-my $sql_event_sel    = qq|SELECT * from $EVENT_TBL|;
-my $sth_event_ins    = $dbObj->prepare("INSERT INTO $EVENT_TBL(" . join(',', @EVENT_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
+my $sql_event_sel     = qq|SELECT * from $EVENT_TBL|;
+my $sth_event_ins     = $dbObj->prepare("INSERT INTO $EVENT_TBL(" . join(',', @EVENT_COLS) .  ") VALUES (?, ?, ?, ?, ?)");
 
-my $sth_event_au_ins = $dbObj->prepare("INSERT INTO $EVENT_AU_TBL(" . join(',', @EVENT_AU_COLS) .  ") VALUES (?, ?)");
+my $sth_event_au_ins  = $dbObj->prepare("INSERT INTO $EVENT_AU_TBL(" . join(',', @EVENT_AU_COLS) .  ") VALUES (?, ?)");
 
-my $sth_event_kw_ins = $dbObj->prepare("INSERT INTO $EVENT_KW_TBL(" . join(',', @EVENT_KW_COLS) .  ") VALUES (?, ?)");
+my $sth_event_ekw_ins = $dbObj->prepare("INSERT INTO $EVENT_EKW_TBL(" . join(',', @EVENT_EKW_COLS) .  ") VALUES (?, ?)");
+my $sth_event_kw_ins  = $dbObj->prepare("INSERT INTO $EVENT_KW_TBL(" . join(',', @EVENT_KW_COLS) .  ") VALUES (?)");
 
 #------------------------------------------------------------------------------
 # Load the keywords
@@ -179,6 +187,7 @@ our $INS_QUOTES = {};
 # Load the quotes keywords
 #------------------------------------------------------------------------------
 
+&insertQuotesKeywordsKW($authors_ref);
 &insertQuotesKeywords($authors_ref);
 
 
@@ -204,6 +213,7 @@ our $INS_EVENTS = {};
 # Load the events keywords
 #------------------------------------------------------------------------------
 
+&insertEventsKeywordsKW($authors_ref);
 &insertEventsKeywords($authors_ref);
 
 
@@ -399,6 +409,42 @@ sub insertQuotes {
 }
 
 #------------------------------------------------------------------------------
+# insertQuotesKeywordsKW: Load the quotes keywords keywords
+#------------------------------------------------------------------------------
+
+sub insertQuotesKeywordsKW {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $quotes_ref  = $author_ref->{'quotes'};
+
+        foreach my $quote_ref (@$quotes_ref) {
+            my $quote = $quote_ref->{'quote'};
+            my $sig   = createSig($quote);
+
+            # Already inserted?
+            #
+            my $quote_id = $SEL_QUOTES->{$sig};
+            next if ! $quote_id;
+
+            my @keywords = split(/\s*,\s*/, $quote_ref->{'keywords'});
+            foreach my $keyword (@keywords) {
+                my $keyword_id = $SEL_KEYWORDS->{$keyword};
+
+                next if ! $keyword_id;
+
+                $DEBUG and print STDOUT "Loading quote keyword. Quote Id: $quote_id, Keyword Id: $keyword_id\n";
+
+                $dbObj->insert($sth_quote_qkw_ins, ($quote_id, $keyword_id));
+            }
+        }
+    }
+    $sth_quote_qkw_ins->finish();
+}
+
+#------------------------------------------------------------------------------
 # insertQuotesKeywords: Load the quotes keywords
 #------------------------------------------------------------------------------
 
@@ -427,7 +473,7 @@ sub insertQuotesKeywords {
 
                 $DEBUG and print STDOUT "Loading quote keyword. Quote Id: $quote_id, Keyword Id: $keyword_id\n";
 
-                $dbObj->insert($sth_quote_kw_ins, ($quote_id, $keyword_id));
+                $dbObj->insert($sth_quote_kw_ins, ($quote_id));
             }
         }
     }
@@ -521,11 +567,47 @@ sub insertEventsAuthors {
             $dbObj->insert($sth_event_au_ins, ($event_id, $author_id));
         }
     }
-    $sth_quote_kw_ins->finish();
+    $sth_event_au_ins->finish();
 }
 
 #------------------------------------------------------------------------------
-# insertEventsKeywords: Load the events keywords
+# insertEventsKeywordsKW: Load the events keywords
+#------------------------------------------------------------------------------
+
+sub insertEventsKeywordsKW {
+    my $authors_ref = shift;
+
+    foreach my $name_sig (sort keys %$authors_ref) {
+
+        my $author_ref  = $authors_ref->{$name_sig};
+        my $events_ref  = $author_ref->{'events'};
+
+        foreach my $event_ref (@$events_ref) {
+            my $event = $event_ref->{'event'};
+            my $sig   = createSig($event);
+
+            # Already inserted?
+            #
+            my $event_id = $SEL_EVENTS->{$sig};
+            next if ! $event_id;
+
+            my @keywords = split(/\s*,\s*/, $event_ref->{'keywords'});
+            foreach my $keyword (@keywords) {
+                my $keyword_id = $SEL_KEYWORDS->{$keyword};
+
+                next if ! $keyword_id;
+
+                $DEBUG and print STDOUT "Loading event keyword. Event Id: $event_id, Keyword Id: $keyword_id\n";
+
+                $dbObj->insert($sth_event_ekw_ins, ($event_id, $keyword_id));
+            }
+        }
+    }
+    $sth_event_ekw_ins->finish();
+}
+
+#------------------------------------------------------------------------------
+# insertEventsKeywords: Load the events keywords keywords
 #------------------------------------------------------------------------------
 
 sub insertEventsKeywords {
@@ -553,7 +635,7 @@ sub insertEventsKeywords {
 
                 $DEBUG and print STDOUT "Loading event keyword. Event Id: $event_id, Keyword Id: $keyword_id\n";
 
-                $dbObj->insert($sth_event_kw_ins, ($event_id, $keyword_id));
+                $dbObj->insert($sth_event_kw_ins, ($event_id));
             }
         }
     }

@@ -67,7 +67,7 @@ GetOptions(
 
 open(PEOPLE, $PEOPLE_FILE) or die("Unable to open file '$PEOPLE_FILE' for reading.");
 
-my $person;
+my ($person, $dates);
 while(<PEOPLE>) {
     # Skip comments
     #
@@ -82,6 +82,11 @@ while(<PEOPLE>) {
     if (m/^Name:\s+/) {
         $person = $';
         $DEBUG and print STDERR "Person: $person\n";
+    }
+
+    if (m/^Relevant Dates:\s+/) {
+        $dates = $';
+        $DEBUG and print STDERR "Dates: $dates\n";
     }
 }
 

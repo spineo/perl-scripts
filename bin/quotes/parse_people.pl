@@ -50,7 +50,7 @@ our $VERSION = "1.0";
 our $VERBOSE = 0;
 our $DEBUG   = 0;
 
-our $PEOPLE_FILE;
+our ($PEOPLE_FILE, $DATE_REF);
 
 use Getopt::Long;
 GetOptions(
@@ -68,6 +68,7 @@ GetOptions(
 open(PEOPLE, $PEOPLE_FILE) or die("Unable to open file '$PEOPLE_FILE' for reading.");
 
 my ($person, $dates);
+
 while(<PEOPLE>) {
     # Skip comments
     #
@@ -81,13 +82,30 @@ while(<PEOPLE>) {
 
     if (m/^Name:\s+/) {
         $person = $';
-        $DEBUG and print STDERR "Person: $person\n";
     }
 
     if (m/^Relevant Dates:\s+/) {
         $dates = $';
-        $DEBUG and print STDERR "Dates: $dates\n";
+
+        my @dates_events = split(/\),\s*/, $dates);
+        foreach my $date_event (@dates_events) {
+            my ($date, $event) = split(/ \(/, $date_event);
+            my ($year, $month, $day) = split('-', $date);
+
+            if ($year and $month and $day and $event) {
+                $event =~ s/\)$//;
+                my $sig = qq|$month-$day-$year-$person|;
+
+                $DATE_REF->{$sig} = $event;
+            }
+        }
     }
+}
+
+# Output the sorted by signature
+#
+foreach my $sig (sort keys %$DATE_REF) {
+    print qq|$sig, $DATE_REF->{$sig}\n|;
 }
 
 #------------------------------------------------------------------------------
